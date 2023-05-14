@@ -7,21 +7,45 @@
 # Summary
 [summary]: #summary
 
-Partial Types proposal is a generalization on "partial borrowing"-like proposals.
+This proposal is universal flexible tool to work **safe** with partial Enums, Structs and Tuples in parameters, arguments, references and  borrows.
 
-This proposal is universal flexible tool to work **safe** with partial parameters, partial arguments, partial references and partial borrowing.
-
-Advantages: maximum type safety, maximum type control guarantee, no ambiguities, flexibility, usability and universality.
+Advantages: maximum type safety, maximum type control guarantee, no ambiguities, zero-cost-binary, flexibility, usability and universality.
 
 
 # Motivation
 [motivation]: #motivation
 
-Safe, Flexible controllable partial parameters for functions and partial consumption (including partial not borrowing) are highly needed.
+Partial Types proposal is a generalization on "partial borrowing"-like proposals. Safe, Flexible controllable partial parameters for functions and partial consumption (including partial borrowing) are highly needed.
 
 Partial Types extension gives to Sum Types (`ST = T1 or T2 or T3 or ..`), Enums first of all, a good tool for "partial functions".
+```rust
+enum EnumABC { A(u32), B(i64), C(f32), }
+
+// function with partial parameter Enum
+fn print_A(a: EnumABC.{A}) {
+    println!("a is {}", a.0);
+}
+
+let ea = EnumABC::A(7);
+//  ea : EnumABC.{A} inferred
+
+print_A(ea);
+```
 
 Partial Types extension gives to Product Types (`PT = T1 and T2 and T3 and ..`), Structs and Tuples first of all, a good **mathematical guarantee** to borrow-checker that borrowing the whole variable with partial type and pretending to borrow just permitted fields is **fully safe**.
+```rust
+struct StructABC { a: u32, b: i64, c: f32, }
+
+// function with partial parameter Struct
+fn ref_a (s : & StructABC.{a}) -> &u32 {
+	&s.a
+}
+
+let s = StructABC {a: 4, b: 7, c: 0.0};
+
+// partial expression at argument
+let sa = ref_a(& s.{a});
+```
 
 And since it is a guarantee by **type**, not by **values**, it has _zero cost_ in binary! Any type error is a compiler error, so no errors in the runtime.
 
