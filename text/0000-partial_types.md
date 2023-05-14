@@ -38,7 +38,7 @@ struct StructABC { a: u32, b: i64, c: f32, }
 
 // function with partial parameter Struct
 fn ref_a (s : & StructABC.{a}) -> &u32 {
-	&s.a
+    &s.a
 }
 
 let s = StructABC {a: 4, b: 7, c: 0.0};
@@ -136,13 +136,13 @@ struct Point {
   state : f64,
 }
 let mut p1 = Point {x:1.0, y:2.0, was_x: 4.0, was_y: 5.0, state: 12.0};
-	// p1 : Point
-	
+    // p1 : Point
+
 let ref_p1was = &mut p1.{wax_x, was_y};
-	// ref_p1was : &mut Point.{was_x, was_y}
-	
+    // ref_p1was : &mut Point.{was_x, was_y}
+
 let ref_p1now = &mut p1.{x, y};
-	// ref_p1now : &mut Point.{x, y}
+    // ref_p1now : &mut Point.{x, y}
 ```
 It is simple and will be possible. 
 
@@ -155,13 +155,13 @@ For Expressions, implicit partiality is `.{_}` ("don't care" partiality) for mos
 Same easy to write functions, which consume partial parameters:
 ```rust
 impl Point {
-	fn ref_x (self : & Self.{x}) -> &f64 {
-		&self.x
-	}
+    fn ref_x (self : & Self.{x}) -> &f64 {
+        &self.x
+    }
 
-	fn refmut_y (self : &mut Self.{y}) -> &mut f64 {
-		&mut self.y
-	}
+    fn refmut_y (self : &mut Self.{y}) -> &mut f64 {
+        &mut self.y
+    }
 }
 let ref_p1x = p1.ref_x();
 let refmut_p1y = p1.refmut_y();
@@ -170,13 +170,13 @@ It is expected, that `self` is **always** cut partiality of argument by same par
 
 Pseudo-rust:
 ```rust
-	fn ref_xy (self : & Self.{'a @( x, y)}) -> &f64 {
-		/*  */
-	}
-	
+fn ref_xy (self : & Self.{'a @( x, y)}) -> &f64 {
+    /*  */
+}
+
 p1.ref_xy();
 // "desugar"
-Point::ref_xy(p1.{'a});
+Point::ref_xy(& p1.{'a});
 ```
 
 Product-Typed argument type must match with parameter type for function or argument type could has **more** permitted partiality then parameter type.
@@ -208,7 +208,7 @@ Before (or instead of) adding (D) Partial Mutability extension it would be nice,
 The idea is that general parameter `Smv` add same variable as 2nd parameter:
 ```rust
 impl SomeStruct<Smv = Self>{
-	pub fn foo(self : &mut Self.{/*'a*/}, smv : & Smv.{/*'b*/})
+    pub fn foo(self : &mut Self.{/*'a*/}, smv : & Smv.{/*'b*/})
 }
 
 var.foo();
@@ -223,17 +223,17 @@ This makes partial borrowing fully flexible!
 impl Point<Smv = Self>{
    pub fn mx_rstate(self : &mut Self.{x}, smv : & Smv.{state}) 
    { *self.x += *smv.state; }
-		
+
    pub fn my_rstate(self : &mut Self.{y}, smv : & Smv.{state}) 
    { *self.y += *smv.state; }
    
    pub fn mxy_rstate(self : &mut.{x,y} Self.{x, y, state}) { 
-     /* ... */
-	 Self::mx_rstate(self.{x}, smv); // explicit
-     Self::mx_rstate(self, smv);     // same implicit
-     /* ... */
-     Self::mx_rstate(self.{y}, smv); // explicit
-	 Self::mx_rstate(self, smv);     // same implicit
+    /* ... */
+    Self::mx_rstate(self.{x}, smv); // explicit
+    Self::mx_rstate(self, smv);     // same implicit
+    /* ... */
+    Self::mx_rstate(self.{y}, smv); // explicit
+    Self::mx_rstate(self, smv);     // same implicit
     /* ... */
    }
 }
@@ -242,7 +242,7 @@ impl Point<Smv = Self>{
 This sub-proposal, has unresolved question is it secure not to check the origin if variable is the same if we explicitly write associated function
 ```rust
 impl Bar<Smv = Self>{
-  fn foo(self : &mut Self::{x}, smv: & Smv::{y}) { /* */ }
+    fn foo(self : &mut Self::{x}, smv: & Smv::{y}) { /* */ }
 }
 Bar::foo(&mut bar.{x}, & bar.{y}); // Ok
 Bar::foo(&mut bar.{x}, & baz.{y}); // Error? Ok?
@@ -280,16 +280,16 @@ If this extension is added, no extension (C) Several Selfs is needed (but it is 
 ```rust
 impl Point {
    pub fn mx_rstate(self : &mut.{x} Self.{x, state}) { /* ... */ }
-		
+
    pub fn my_rstate(self : &mut.{y} Self.{y, state}) { /* ... */ }
-	
+
    pub fn mxy_rstate(self : &mut.{x,y} Self.{x, y, state}) { 
-     /* ... */
-	 self.{x, state}.mx_rstate(); // explicit
-     self.mx_rstate(); // same implicit
-     /* ... */
-     self.{y, state}.my_rstate(); // explicit
-	 self.my_rstate(); // same implicit
+    /* ... */
+    self.{x, state}.mx_rstate(); // explicit
+    self.mx_rstate(); // same implicit
+    /* ... */
+    self.{y, state}.my_rstate(); // explicit
+    self.my_rstate(); // same implicit
     /* ... */
    }
 }
