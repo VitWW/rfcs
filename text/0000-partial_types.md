@@ -34,9 +34,9 @@ Partial (Sub-)Types are types, whiсh has not full range of possible values and 
 
 Partial Types are not Contract Types (Types with invariant), but this proposal could coexist with Contract Types.
 
-Partiality of type (or partial type access) is written as `Path::{fld1, fld2, ..}` after Path (Type name), where `fld1`, `fld2`, .. are only permitted fields of this type, the rest of fields are locked.
+Partiality of type (or partial type access) is written as `Path.{fld1, fld2, ..}` after Path (Type name), where `fld1`, `fld2`, .. are only permitted fields of this type, the rest of fields are denied access fields.
 
-It is forbidden to use somehow locked fields (like have outside access to private field), including access to read locked field, to write, to borrow, to move. It is a compile error if someone try to access.
+It is forbidden to use somehow denied fields (like have outside access to private field), including access to read denied field, to write, to borrow, to move. It is a compile error if someone try to access.
 
 ## Partial Enums
 
@@ -52,19 +52,19 @@ enum MyEnum {
   D(u32),
 }
 
-fn print_A(a: MyEnum::{A}) {
+fn print_A(a: MyEnum.{A}) {
     println!("a is {}", a.0);
 }
 
-fn print_B(b: MyEnum::{B}) {
+fn print_B(b: MyEnum.{B}) {
     println!("b is {}", b.x);
 }
 
 fn print_no_pattern(e: MyEnum) {
   match e {
-    MyEnum::A(_)  => print_A(e), // e : MyEnum::{A}
-    b @ MyEnum::B(..) => print_B(b), // b : MyEnum::{B}
-	_ => (), // e : MyEnum::{C, D};
+    MyEnum::A(_)  => print_A(e),     // e : MyEnum.{A}
+    b @ MyEnum::B(..) => print_B(b), // b : MyEnum.{B}
+    _ => (),                         // e : MyEnum.{C, D};
   }
 }
 ```
@@ -76,18 +76,18 @@ Sum-Typed argument type must match with parameter type for function or argument 
 // Enum ~ Sum Type
 enum E4 {A (i32), B(i32), C (i32), D(i32)}
 
-fn do_eab(e : E4::{A, B}) { /* .. */ }
+fn do_eab(e : E4.{A, B}) { /* .. */ }
 
 let e : E4; 
-do_eab(e); // e::{*} - error
-let e : E4::{A, B, C};
-do_eab(e); // e::{A, B, C} - error
-let e : E4::{A, B};
-do_eab(e); // e::{A, B} - Ok
-let e : E4::{A} = E4::A(5);
-do_eab(e); // e::{A} - Ok
-let e : E4::{B} = E4::B(7);
-do_eab(e); // e::{B} - Ok
+do_eab(e); // e.{*} - error
+let e : E4.{A, B, C};
+do_eab(e); // e.{A, B, C} - error
+let e : E4.{A, B};
+do_eab(e); // e.{A, B} - Ok
+let e : E4.{A} = E4::A(5);
+do_eab(e); // e.{A} - Ok
+let e : E4.{B} = E4::B(7);
+do_eab(e); // e.{B} - Ok
 ```
 
 Sum-Typed argument type must select for Implementations same type or type, which has more permitted partiality.
@@ -100,7 +100,7 @@ So for ergonomic it is Ok to have for each "one-field sub-Enum" Implementation a
 
 **_(B)_** *independent sub-proposal*
 
-For Product Types `PT = T1 and T2 and T3 and ..`), for structs, tuples we need not only partiality of a type, but "partial access" expression: `Expr .{fld1, fld2, ..}`, where `fld1`, `fld2`, .. are permitted fields of this type, the rest of fields are locked.
+For Product Types `PT = T1 and T2 and T3 and ..`), for structs, tuples we need not only partiality of a type, but "partial access" expression: `Expr .{fld1, fld2, ..}`, where `fld1`, `fld2`, .. are permitted fields of this type, the rest of fields are denied.
 
 One step to partial borrows Structs and Tuples.
 ```rust
@@ -115,62 +115,116 @@ let mut p1 = Point {x:1.0, y:2.0, was_x: 4.0, was_y: 5.0, state: 12.0};
 	// p1 : Point
 	
 let ref_p1was = &mut p1.{wax_x, was_y};
-	// ref_p1was : &mut Point::{was_x, was_y}
+	// ref_p1was : &mut Point.{was_x, was_y}
 	
 let ref_p1now = &mut p1.{x, y};
-	// ref_p1now : &mut Point::{x, y}
+	// ref_p1now : &mut Point.{x, y}
 ```
 It is simple and will be possible. 
 
+If explicit partiality is omitted, then implicit partiality is used. 
+
+For Types, implicit partiality is `.{*}` (all fields are permitted).
+
+For Expressions, implicit partiality is `.{_}` ("don't care" partiality) for most cases. For references and arguments, type-checker infer partiality.
+
 Same easy to write functions, which consume partial parameters:
 ```rust
-fn ref_x (&self : & Self::{x}) -> &f64 {
-   &self.x
-}
+impl Point {
+	fn ref_x (self : & Self.{x}) -> &f64 {
+		&self.x
+	}
 
-fn refmut_y (&mut self : &mut Self::{y}) -> &mut f64 {
-   &mut self.y
+	fn refmut_y (self : &mut Self.{y}) -> &mut f64 {
+		&mut self.y
+	}
 }
-
 let ref_p1x = p1.ref_x();
 let refmut_p1y = p1.refmut_y();
 ```
-It is expected, that `self` is **always** cut partiality of argument by same partiality as self-parameter by partial expression before use!
+It is expected, that `self` is **always** cut partiality of argument by same partiality as self-parameter by partial expression before use (even if implicit rules are off)!
+
+Pseudo-rust:
+```rust
+	fn ref_xy (self : & Self.{'a @( x, y)}) -> &f64 {
+		/*  */
+	}
+	
+p1.ref_xy();
+// "desugar"
+Point::ref_xy(p1.{'a});
+```
 
 Product-Typed argument type must match with parameter type for function or argument type could has **more** permitted partiality then parameter type.
 ```rust
 // Struct ~ Product Type
 struct S4 {a : i32, b : i32, c : i32, d : i32}
 
-fn do_sab(s : S4::{a, b}) { /* .. */ }
+fn do_sab(s : S4.{a, b}) { /* .. */ }
 
 let s = S4 {a: 6, b: 7, c: 8, d: 9};
 
-do_sab(s); // s::{*} - Ok
-do_sab(s.{a, b, c}); // s::{a, b, c} - Ok
-do_sab(s.{a, b}); // s::{a, b} - Ok
-do_sab(s.{a}); // s::{a} - error
-do_sab(s.{b}); // s::{b} - error
+do_sab(s.{*});       // s.{*} - Ok
+do_sab(s.{a, b, c}); // s.{a, b, c} - Ok
+do_sab(s);           // s.{a, b}, inferred - Ok
+do_sab(s.{a, b});    // s.{a, b} - Ok
+do_sab(s.{a});       // s.{a} - error
+do_sab(s.{b});       // s.{b} - error
 ```
 Implementation of sub-Product-type is no needed.
 
 ## Several Selfs
 
-**_(C)_** sub-proposal, which could be added together or after (B), especially before (D)
+**_(C)_** maybe insecure sub-proposal, which could be added together or after (B), especially before (D) or alternative to (D)
 
-Before adding (D) Partial Mutability extension it would be nice, if several `self`s will be added: `self1`, `self2`, `self3` in Implementations.
+Before (or instead of) adding (D) Partial Mutability extension it would be nice, if a general parameter `Smv` as "same variable" is added in Implementations.
 
-This makes partial borrowing much more flexible!
+*An alternative keywords `self1`, `self2` are added.*
 
+The idea is that general parameter `Smv` add same variable as 2nd parameter:
 ```rust
-impl {
-   pub fn mx_rstate(&mut self1 : &mut Self::{x}, &self2 : & Self::{state}) 
-   { /* ... */ }
+impl SomeStruct<Smv = Self>{
+	pub fn foo(self : &mut Self.{/*'a*/}, smv : & Smv.{/*'b*/})
+}
+
+var.foo();
+// desugars
+SomeStruct::foo(&mut var.{/*'a*/}, & var.{/*'b*/});
+```
+It is expected, that `Smv` parameter is **always** cut partiality of argument by same partiality as self-parameter by partial expression before use (even if implicit rules are off)!
+
+
+This makes partial borrowing fully flexible!
+```rust
+impl Point<Smv = Self>{
+   pub fn mx_rstate(self : &mut Self.{x}, smv : & Smv.{state}) 
+   { *self.x += *smv.state; }
 		
-   pub fn my_rstate(&mut self1 : &mut Self::{y}, &self2 : & Self::{state}) 
-   { /* ... */ }
+   pub fn my_rstate(self : &mut Self.{y}, smv : & Smv.{state}) 
+   { *self.y += *smv.state; }
+   
+   pub fn mxy_rstate(self : &mut.{x,y} Self.{x, y, state}) { 
+     /* ... */
+	 Self::mx_rstate(self.{x}, smv); // explicit
+     Self::mx_rstate(self, smv);     // same implicit
+     /* ... */
+     Self::mx_rstate(self.{y}, smv); // explicit
+	 Self::mx_rstate(self, smv);     // same implicit
+    /* ... */
+   }
 }
 ```
+
+This sub-proposal, has unresolved question is it secure not to check the origin if variable is the same if we explicitly write associated function
+```rust
+impl Bar<Smv = Self>{
+  fn foo(self : &mut Self::{x}, smv: & Smv::{y}) { /* */ }
+}
+Bar::foo(&mut bar.{x}, & bar.{y}); // Ok
+Bar::foo(&mut bar.{x}, & baz.{y}); // Error? Ok?
+```
+I think it is insecure, error, but who knows.
+If it is secure, then this sub-proposal.
 
 ## Partial Mutability
 
@@ -200,28 +254,32 @@ It is expected, that `&mut.{..}` is a third type of borrowing!
 
 If this extension is added, no extension (C) Several Selfs is needed (but it is no contradiction to use both extensions):
 ```rust
-   pub fn mx_rstate(&mut.{x} self : &mut.{x} Self::{x, state}) { /* ... */ }
+impl Point {
+   pub fn mx_rstate(self : &mut.{x} Self.{x, state}) { /* ... */ }
 		
-   pub fn my_rstate(&mut.{y} self : &mut.{y} Self::{y, state}) { /* ... */ }
+   pub fn my_rstate(self : &mut.{y} Self.{y, state}) { /* ... */ }
 	
-   pub fn mxy_rstate(&mut.{x,y} self : &mut.{x,y} Self::{x, y, state}) { 
+   pub fn mxy_rstate(self : &mut.{x,y} Self.{x, y, state}) { 
      /* ... */
-     self.{x, state}.mx_rstate();
+	 self.{x, state}.mx_rstate(); // explicit
+     self.mx_rstate(); // same implicit
      /* ... */
-     self.{y, state}.my_rstate();
+     self.{y, state}.my_rstate(); // explicit
+	 self.my_rstate(); // same implicit
     /* ... */
    }
+}
 ```
 
 ## Pretty Partial Tuples
 
 **_(E)_** sub-proposal, which could be added together or after (B), it is better before (F)
 
-This extension is not a mandatory. Tuple type has "naked" structure, so it would be handy have more pretty visuals, instead of mark all permitted fields in "partiality", write `lock` before locked field.
+This extension is not a mandatory. Tuple type has "naked" structure, so it would be handy have more pretty visuals, instead of mark all permitted fields in "partiality", write `deny` before denied field.
 ```rust
-let t :: (i32, &u64, f64, u8)::{1,3};
+let t :: (i32, &u64, f64, u8).{1,3};
 // same as
-let t :: (lock i32, &u64, lock f64, u8);
+let t :: (deny i32, &u64, deny f64, u8);
 ```
 
 This extension is not just pretty, but useful with extension (F) partial initializing Tuples.
@@ -236,21 +294,21 @@ struct S4 {a : i32, b : i32, c : i32, d : i32}
 
 let s_abcd : S4 = S4 {a: 6, b: 7, c: 8, d: 9};
 
-let s_abc : S4::{a, b, c} = S4 {a: 6, b: 7, c: 8};
-let s_bcd : S4::{b, c, d} = S4 {b: 7, c: 8, d: 9};
-let s_ab  : S4::{a, b}    = S4 {a: 6, b: 7};
-let s_bd  : S4::{b, d}    = S4 {b: 7, d: 9};
-let s_cd  : S4::{c, d}    = S4 {c: 8, d: 9};
-let s_a   : S4::{a}       = S4 {a: 6};
+let s_abc : S4.{a, b, c} = S4 {a: 6, b: 7, c: 8};
+let s_bcd : S4.{b, c, d} = S4 {b: 7, c: 8, d: 9};
+let s_ab  : S4.{a, b}    = S4 {a: 6, b: 7};
+let s_bd  : S4.{b, d}    = S4 {b: 7, d: 9};
+let s_cd  : S4.{c, d}    = S4 {c: 8, d: 9};
+let s_a   : S4.{a}       = S4 {a: 6};
 
-let s_abd = S4 {a: 6, b: 7, d: 9}; // s_abd : S4::{a, b, d}
-let s_acd = S4 {a: 6, c: 8, d: 9}; // s_acd : S4::{a, c, d}
-let s_ac  = S4 {a: 6, c: 8};       // s_ac  : S4::{a, c}
-let s_ad  = S4 {a: 6, d: 9};       // s_ad  : S4::{a, d}
-let s_bc  = S4 {b: 7, c: 8};       // s_bc  : S4::{b, c}
-let s_b   = S4 {b: 7};             // s_b   : S4::{b}
-let s_c   = S4 {c: 8};             // s_c   : S4::{c}
-let s_d   = S4 {d: 9};             // s_d   : S4::{d}
+let s_abd = S4 {a: 6, b: 7, d: 9}; // s_abd : S4.{a, b, d}
+let s_acd = S4 {a: 6, c: 8, d: 9}; // s_acd : S4.{a, c, d}
+let s_ac  = S4 {a: 6, c: 8};       // s_ac  : S4.{a, c}
+let s_ad  = S4 {a: 6, d: 9};       // s_ad  : S4.{a, d}
+let s_bc  = S4 {b: 7, c: 8};       // s_bc  : S4.{b, c}
+let s_b   = S4 {b: 7};             // s_b   : S4.{b}
+let s_c   = S4 {c: 8};             // s_c   : S4.{c}
+let s_d   = S4 {d: 9};             // s_d   : S4.{d}
 ```
 Sure, it is forbidden to fill private fields outside of module.
 
@@ -258,49 +316,49 @@ It is also become possible to use **several** partly typed variables(sure, their
 ```rust
 struct S4 {a : i32, b : i32, c : i32, d : i32}
 
-let s_ab : S4::{a, b} = S4 {a: 6, b: 7};
-let s_c = S4 {c: 8}; // s_c : S4::{c}
+let s_ab : S4.{a, b} = S4 {a: 6, b: 7};
+let s_c = S4 {c: 8}; // s_c : S4.{c}
 
 let s1 : S4 = S4{b: 11, d: 17, ..s_ab, ..s_c};
 
-let s_abc = S4{b: 11, ..s_ab, ..s_c}; // s_abc : S4::{a, b, c}
+let s_abc = S4{b: 11, ..s_ab, ..s_c}; // s_abc : S4.{a, b, c}
 
 let s2 : S4 = S4{d: 17, ..s_ab, ..s_c};
 ```
 
-If extension (E) pretty partiality for tuples is added, then partial initializing Tuples is also possible with `lock` pre-field and maybe **miss** Expr if type is clear.
+If extension (E) pretty partiality for tuples is added, then partial initializing Tuples is also possible with `deny` pre-field and maybe **miss** Expr if type is clear.
 
 Or partial experssion is used:
 ```rust
 let t_0123: (i32, u16, f64, f32) = (6i32, 7u16, 8.0f64, 9.0f32);
 
-let t_013 : (i32, u16, f64, f32)::{0, 1, 3} = (6i32, 7u16, lock 8.0f64, 9.0f32);
-let t_023 : (i32, u16, f64, f32)::{0, 2, 3} = (6i32, lock, 8.0f64,      9.0f32);
-let t_0   : (i32, u16, f64, f32)::{0}       = (6i32, lock, lock,        lock);
+let t_013 : (i32, u16, f64, f32).{0, 1, 3} = (6i32, 7u16, deny 8.0f64, 9.0f32);
+let t_023 : (i32, u16, f64, f32).{0, 2, 3} = (6i32, deny, 8.0f64,      9.0f32);
+let t_0   : (i32, u16, f64, f32).{0}       = (6i32, deny, deny,        deny);
 
-let t_012 : (i32,      u16,      f64,      lock f32) = (6i32,      7u16,      8.0f64, lock 9.0f32);
-let t_2   : (lock i32, lock u16, f64,      lock f32) = (lock 6i32, lock 7u16, 8.0f64, lock 9.0f32);
-let t_23  : (lock i32, lock u16, f64,      f32)      = (lock,      lock 7u16, 8.0f64, 9.0f32);
-let t_123 : (lock i32, u16,      f64,      f32)      = (lock,      7u16,      8.0f64, 9.0f32);
-let t_13  : (lock i32, u16,      lock f64, f32)      = (lock,      7u16,      lock,   9.0f32);
-let t_3   : (lock i32, lock u16, lock f64, f32)      = (lock,      lock,      lock,   9.0f32);
+let t_012 : (i32,      u16,      f64,      deny f32) = (6i32,      7u16,      8.0f64, deny 9.0f32);
+let t_2   : (deny i32, deny u16, f64,      deny f32) = (deny 6i32, deny 7u16, 8.0f64, deny 9.0f32);
+let t_23  : (deny i32, deny u16, f64,      f32)      = (deny,      deny 7u16, 8.0f64, 9.0f32);
+let t_123 : (deny i32, u16,      f64,      f32)      = (deny,      7u16,      8.0f64, 9.0f32);
+let t_13  : (deny i32, u16,      deny f64, f32)      = (deny,      7u16,      deny,   9.0f32);
+let t_3   : (deny i32, deny u16, deny f64, f32)      = (deny,      deny,      deny,   9.0f32);
 
-let t_01  : (i32, u16, f64, f32)::{0, 1} = (6i32, 7u16, 8.0f64, 9.0f32).{0, 1};
+let t_01  : (i32, u16, f64, f32).{0, 1} = (6i32, 7u16, 8.0f64, 9.0f32).{0, 1};
 
-let t_02 = (6i32,      lock 7u16, 8.0f64,      lock 9.0f32); // t_02 : (i32, u16, f64, f32)::{0, 2}
-let t_03 = (6i32,      lock 7u16, lock 8.0f64, 9.0f32);      // t_03 : (i32, u16, f64, f32)::{0, 3}
-let t_1  = (lock 6i32, 7u16,      lock 8.0f64, lock9.0f32);  // t_1  : (i32, u16, f64, f32)::{1}
+let t_02 = (6i32,      deny 7u16, 8.0f64,      deny 9.0f32); // t_02 : (i32, u16, f64, f32).{0, 2}
+let t_03 = (6i32,      deny 7u16, deny 8.0f64, 9.0f32);      // t_03 : (i32, u16, f64, f32).{0, 3}
+let t_1  = (deny 6i32, 7u16,      deny 8.0f64, deny9.0f32);  // t_1  : (i32, u16, f64, f32).{1}
 
-let t_12 = (6i32, 7u16, 8.0f64, 9.0f32).{1, 2}; // t_12 : (i32, u16, f64, f32)::{1, 2}
+let t_12 = (6i32, 7u16, 8.0f64, 9.0f32).{1, 2}; // t_12 : (i32, u16, f64, f32).{1, 2}
 ```
 
 ## Extended Partly initializing Structs and Tuples
 
 **_(G)_** sub-proposal, which could be added together or after (B)
 
-*Theory of types* do not forbid to unlock locked fields of Partial Type, but internal Rust representation of variables gives significant limitations on such action.
+*Theory of types* do not forbid to become permitted denied fields of Partial Type, but internal Rust representation of variables gives significant limitations on such action.
 
-"Fresh" only variables could be extended, where locked fields are write only fields.
+"Fresh" only variables could be extended, where denied fields are write only fields.
 
 Not Fresh are referenced variables, dereferenced variables and maybe(unclear) moved variables.
 
@@ -312,7 +370,7 @@ struct SR <T>{
 }
 
 let x = SR {val : 5i32 };
-    // x : SR<i32>::{val}
+    // x : SR<i32>.{val}
 
 x.lnk = & x.val;
     // x : SR<i32>;
@@ -328,15 +386,15 @@ Inferred Structs and Enums is not a mandatory extension, and it is alternative t
 ```rust
 struct StructInfr {..}
 
-let s_c = StructInfr {c: 8i32}; // s_c : StructInfr/*{c: i32, .. }*/::{c}
+let s_c = StructInfr {c: 8i32}; // s_c : StructInfr/*{c: i32, .. }*/.{c}
 
-let s_d = StructInfr {d: 8u8}; // s_d : StructInfr/*{c: i32, d: u8, .. }*/::{d}
+let s_d = StructInfr {d: 8u8}; // s_d : StructInfr/*{c: i32, d: u8, .. }*/.{d}
 
 enum EnumInfr {..}
 
-let e_c = EnumInfr::C(8i32); // e_c : EnumInfr/*{C(i32), ..}*/::{C}
+let e_c = EnumInfr::C(8i32); // e_c : EnumInfr/*{C(i32), ..}*/.{C}
 
-let e_d = EnumInfr::D{d: 77u64}; // es_d : EnumInfr/*{C(i32), D{d: u64}, ..}*/::{D}
+let e_d = EnumInfr::D{d: 77u64}; // es_d : EnumInfr/*{C(i32), D{d: u64}, ..}*/.{D}
 ```
 It is expected, that type-checker could infers type from using its fields.
 
@@ -345,7 +403,7 @@ It is expected, that type-checker could infers type from using its fields.
 
 The core Idea of this proposal is "Proxy Borrowing" - we borrow the whole variable, but borrow-checker pretends it borrow just permitted fields.
 
-And Type-checker gives a mathematical guarantee, than all locked fields remain intact and all partly-immutable fields remain immutable! 
+And Type-checker gives a mathematical guarantee, than all denied fields remain intact and all partly-immutable fields remain immutable! 
 
 And this mean, that Proxy Borrowing borrowing is fully **safe** and _zero cost_ in binary.
 
@@ -357,7 +415,7 @@ Borrowing rules for partial types:
 
 `PermittedField` field borrowing rules are ordinary Rust rules. New variable borrows the whole variable (with partial type), but checker pretends it borrows just permitted fields of this variable.
 
-Not `PermittedField` filed is always is ready to mutable and immutable borrow regardless if origin field is locked(by move, by reference, by borrow), is visible, is mutable.
+Not `PermittedField` filed is always is ready to mutable and immutable borrow regardless if origin field is denied(by move, by reference, by borrow), is visible, is mutable.
 
 When we write a code for partial borrow (or partly mutable borrow), the link of object itself returns, but borrow-checker borrows proxy of permitted fields only.
 
@@ -371,25 +429,25 @@ let s = S4 {a : 5, b: 6, c: 7, d: 8};
     // s : S4
 
 let r_sd = & s.{d};
-    // r_sd : & S4::%{d}
+    // r_sd : & S4.{d}
     //
     // r_sd  ~ Link(s);
     // borrow-checker borrows ProxyLink(s.d)
 
 let mut mr_sabc = &mut s.{a, b, c};
-    // mr_sabc : &mut S4::%{a, b, c}
+    // mr_sabc : &mut S4.{a, b, c}
     //
     // mr_sabc  ~ mut Link(s);
     // borrow-checker: mut ProxyLink(s.a), mut ProxyLink(s.b), mut ProxyLink(s.c)
 
 let rr_sbc = & mr_sabc.{b, c};
-    // rr_sbc : && S4::%{b, c}
+    // rr_sbc : && S4.{b, c}
     //
     // rr_sbc  ~ Link(mr_sabc);
     // borrow-checker: ProxyLink(ProxyLink(s.b)), ProxyLink(ProxyLink(s.c))
 
 let mut mrr_sa = &mut mr_sabc.{a};
-    // mrr_sa : &&mut S4::%{a}
+    // mrr_sa : &&mut S4.{a}
     //
     // mrr_sa  ~ mut Link(mr_sabc);
     // borrow-checker: mut ProxyLink(ProxyLink(s.a))
@@ -405,56 +463,43 @@ Second, but still important - syntax.
 
 Minimal Partiality we could write such:
 ```
-Partiality: ::{ PartialFields* }
+Partiality: .{ PartialFields* }
 PartialFields: PermittedField (, PermittedField )* ,?
-PermittedField: IDENTIFIER | TUPLE_INDEX
+PermittedField: IDENTIFIER | TUPLE_INDEX | * | _ 
 ```
 
-**_(Stage 2)_**
+**_(Stage 2B)_**
 
-But we wish to have 2 "pretty" variants: TypePartiality syntax and ExpressionPartiality (for (B) and / or (D))
-```
-TPartiality: ::{ PartialFields* }
-...
-
-EPartiality: .{ PartialFields* }
-...
-```
-
-**_(Stage 3B)_**
-
-If we wish to have sub-partial Product-types for (B) and / or (D)
+If we wish to have "recursive" sub-partial Product-types for (B) and / or (D)
 ```
 PartialFields:    PartialField (, PartialField )* ,?
-PartialField:     PermittedField (T|E)Partiality?
-PermittedField:   IDENTIFIER | TUPLE_INDEX
+PartialField:     PermittedField Partiality?
+PermittedField:   IDENTIFIER | TUPLE_INDEX | * | _
 ```
 
-**_(Stage 3A)_**
+**_(Stage 2A)_**
 
-If we wish to have sub-partial Enum-types for (A)
+If we wish to have "recursive" sub-partial Enum-types for (A)
 ```
 PartialFields:     PartialField (, PartialField )* ,?
 PartialField:      PermittedField PartialSubFields?
 PartialSubFields:  { PartialSubField (, PartialSubField )* ,? }
-PartialSubField:   SpecificSubField TPartiality
-PermittedField:    IDENTIFIER | TUPLE_INDEX
+PartialSubField:   SpecificSubField Partiality
+PermittedField:    IDENTIFIER | TUPLE_INDEX | * | _
 SpecificSubField:  IDENTIFIER | TUPLE_INDEX
 ```
 
-**_(Stage 1+2+3A+3B)_**
+**_(Stage 1+2A+2B)_**
 
 Finally, Partiality with full and maximum control and flexibility:
 ```
-TPartiality: ::{ PartialFields* }
-EPartiality: .{ PartialFields* }
-
-PartialFields:     PartialField (, PartialField )* ,?
-PartialField:      PermittedField PartialSubFields? (T|E)Partiality?
-PartialSubFields:  { PartialSubField (, PartialSubField )* ,? }
-PartialSubField:   SpecificSubField TPartiality
-PermittedField:    IDENTIFIER | TUPLE_INDEX
-SpecificSubField:  IDENTIFIER | TUPLE_INDEX
+Partiality:            .{ PartialFields* }
+PartialFields:         PartialField (, PartialField )* ,?
+PartialField:          PermittedField PartialSubEnumFields? Partiality?
+PartialSubEnumFields:  { PartialSubEnumField (, PartialSubEnumField )* ,? }
+PartialSubEnumField:   SubEnumField Partiality
+PermittedField:        IDENTIFIER | TUPLE_INDEX | * | ..
+SubEnumField:          IDENTIFIER | TUPLE_INDEX
 ```
 
 ### Partial Enums syntax
@@ -463,7 +508,7 @@ SpecificSubField:  IDENTIFIER | TUPLE_INDEX
 
 The only one syntax needed to Enum - is update `TypePath` into
 ```
-TypePath:   ::? TypePathSegment (:: TypePathSegment)* TPartiality?
+TypePath:   ::? TypePathSegment (:: TypePathSegment)* Partiality?
 ```
 
 ### Partial Struct and Tuple syntax
@@ -472,29 +517,29 @@ TypePath:   ::? TypePathSegment (:: TypePathSegment)* TPartiality?
 
 Syntax is needed to Struct Type - is update `TypePath` (same as to Enum)
 ```
-TypePath:   ::? TypePathSegment (:: TypePathSegment)* TPartiality?
+TypePath:   ::? TypePathSegment (:: TypePathSegment)* Partiality?
 ```
 
 For Tuple Type we need to update `TupleType`
 ```
-TupleType:  ( ) | ( ( Type , )+ Type? ) TPartiality?
+TupleType:  ( ) | ( ( Type , )+ Type? ) Partiality?
 ```
 
 For Expression we need create new kind of Expression:
 ```
-PartialExpression:   Expression EPartiality
+PartialExpression:   Expression Partiality
 ```
 
-and include it into `ExpressionWithoutBlock`:
+and include it into `ExpressionWithoutBdeny`:
 ```
-ExpressionWithoutBlock:   ... | FieldExpression | PartialExpression | ...
+ExpressionWithoutBdeny:   ... | FieldExpression | PartialExpression | ...
 ```
 
 ### Several Selfs syntax
 
 **_(C)_**
 
-For this extension, new keywords are needed: `self1` and `self2`
+No special syntax For this extension is needed.
 
 ### Partial Mutability syntax
 
@@ -502,7 +547,7 @@ For this extension, new keywords are needed: `self1` and `self2`
 
 We add Mutability
 ```
-PartialMutability: mut EPartiality?
+PartialMutability: mut Partiality?
 ```
 
 And change `mut` into `PartialMutability` at `IdentifierPattern`:
@@ -526,8 +571,8 @@ Function:TypedSelf : PartialMutability? self : Type
 
 For Tuple Type we need to update `TupleType` again:
 ```
-TupleType:        ( ) | ( ( TupleTypeSingle , )+ TupleTypeSingle? ) TPartiality?
-TupleTypeSingle:  lock? Type
+TupleType:        ( ) | ( ( TupleTypeSingle , )+ TupleTypeSingle? ) Partiality?
+TupleTypeSingle:  deny? Type
 ```
 
 ### Partial Initializing Structs and Tuples Syntax
@@ -546,11 +591,11 @@ No special syntax for partial initialization of Struct is don't needed.
 
 If (E) extension is on, then we also need to change `TupleExpr` and `StructExprTuple`:
 ```
-TupleExpression:        ( TupleElements? )
-TupleElements :         ( TupleExpressionSingle , )+ TupleExpressionSingle?
-TupleExpressionSingle:  lock | lock? Expression
+TupleExpression:  ( TupleElements? )
+TupleElements :   ( TupleExprSingle , )+ TupleExprSingle?
+TupleExprSingle:  deny | deny? Expression
 
-StructExprTuple:        PathInExpression ( ( TupleExpressionSingle (, TupleExpressionSingle)* ,? )? )
+StructExprTuple:  PathInExpression ( ( TupleExprSingle (, TupleExprSingle)* ,? )? )
 ```
 
 ### Extended Partly initializing Variables Syntax
@@ -559,18 +604,13 @@ StructExprTuple:        PathInExpression ( ( TupleExpressionSingle (, TupleExpre
 
 Special syntax is not required.
 
-If assignment operator `=` is not enough, a new one `let=` operator is added with same precedence and associativity as `=`.
-
-
 ### Inferred Structs and Enums Syntax
 
 **_(H)_**
 
 This extension is need to support `..` (or `_`) "rest of fields" field name to infer Enum / Struct fields.
 ```
-StructExprFields:  StructExprField (, StructExprField)* (, StructRestField)? (, StructBase | ,?)
-StructExprTuple:   PathInExpression ( ( Expression (, Expression)* (, StructRestField)? ,? )? )
-StructRestField:   ..
+StructExprStruct:  PathInExpression { ( .. | StructExprFields | StructBase)? }
 ```
 
 
