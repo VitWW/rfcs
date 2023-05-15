@@ -150,7 +150,9 @@ If explicit partiality is omitted, then implicit partiality is used.
 
 For Types, implicit partiality is `.{*}` (all fields are permitted).
 
-For Expressions, implicit partiality is `.{_}` ("don't care" partiality) for most cases. For references and arguments, type-checker infer partiality.
+For Expressions, implicit partiality is `.{_}` ("don't care" partiality). 
+
+We could alternatively permit to implicitly infer partiality for arguments. In this case we must explicitly write `.{_}` or `.{*}` to prevent inferring.
 
 Same easy to write functions, which consume partial parameters:
 ```rust
