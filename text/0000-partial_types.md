@@ -409,13 +409,139 @@ let e_d = EnumInfr::D{d: 77u64}; // es_d : EnumInfr/*{C(i32), D{d: u64}, ..}*/.{
 ```
 It is expected, that type-checker could infers type from using its fields.
 
+## Partial Uniniting Types
+
+**_(IJ)_** sub-proposal, which could be added together or after (B) 
+
+Rust allow to write uninitialized variables. But they are fully uninitialized. This extension allow to write much more.
+
+We add `uninit` before Type Name and we also add partiality to it - Partial Uniniting.
+
+If we use explicit unitialization (together with (F)), if implicitly, then instead of (F) (it is better remain Error if not fields are filled)
+```rust
+struct S4 {a : i32, b : i32, c : i32, d : i32}
+
+let s_bd  : uninit.{a, c} S4 = S4 {b: 7, d: 9, ..uninit};
+```
+
+If we also use extension (E), then we could also write uniniting for tuples and more flexible 
+```rust
+let s_bd  : uninit.{c} S4 = S4 {a: 3, b: 7, uninit c, d: 9};
+
+let t_1   : uninit.{1} (i32, u16, f64, f32) = (uninit, 4, uninit, uninit);
+
+let t_3   : (uninit i32, uninit u16, uninit f64, f32) = (uninit, uninit, uninit, 9.0f32);
+
+let t_02 = (6i32, uninit 7u16, 8.0f64, uninit 9.0f32); // t_02 : (i32, uninit u16, f64, uninit f32)
+```
+
+ If extension (E) is off, we must allow infer uniniting from the type:
+```rust
+let t_3   : uninit.{0,1,2} (i32, u16, f64, f32) = (1, 7, 8, 9.0f32);
+```
+Sure, it is forbidden to read, to move and to borrow uninit fields.
+
+Now we could create self-Referential Types:
+```rust
+struct SR <T>{
+    val : T,
+    lnk : & T, // reference to val
+}
+
+let x : uninit.{lnk} SR<i32> = SR {val : 5, uninit lnk };
+
+x.lnk = & x.val;
+    // x : SR<i32>;
+```
+
+This Uniniting as we added is enough to extend by "referential uniniting" (and not only for Partial Types, but for any types (Sized at least)), but due complexity it is not part of this extension.
+
+**_(J+)_** *independent sub-proposal* **Uniniting Types or Movable and Referential Uniniting**
+
+Most important: Uniniting variable after initialization (droping uniniting), is no longer `uninit`!
+```rust
+let a :  i32;
+// a : uninit i32;
+
+a = 7;
+// a : i32; uninit is "drop"/inited
+```
+
+Movable non-refential uniniting is easy: uniniting is "moved" by move from sender to receiver.
+```rust
+let a :  i32;
+// a : uninit i32;
+
+let b = a;
+// b : uninit i32;
+// a : i32; // not longer uninit, but moved
+```
+
+Referential Uniniting is a bit complicated. 
+
+(1) Uniniting is "moved" by move from sender to receiver (reference)
+
+(2) Uniniting Reference is always "exclusive", regardless if it mutable or not (till drop).
+
+(3) Uniniting dereferenceble Variable is always at least once write-only, regardless if it mutable or not
+
+(4) Uniniting Reference is forbidden to move (after initialization, reference is not longer Uniniting).
+
+(5) Uniniting Reference is forbidden to **drop** (after initialization, reference is not longer Uniniting). 
+
+```rust
+let a :  i32;
+// a : uninit i32;
+
+let b = &a;
+// b : & uninit i32;
+// a : i32; // not longer uninit, but exclusive borrowed!
+
+*b = 7;
+// b : & i32;
+// now reference 'b' could be droped
+
+drop(b);
+// a == 7
+```
+
+Uniniting Parameters are similar to Referential Uniniting
+
+(1) Uniniting must be written explicitly at Type
+
+(2) If Uniniting Parameter is not-reference, then it behaves same as uniniting non-reference.
+
+(3) If Uniniting Parameter is reference, then it behaves same as uniniting reference.
+
+(4) If Uniniting Parameter is reference initialization must happens before return or together with return;
+
+```rust
+struct S4 {a : i32, b : i32, c : i32, d : i32}
+
+impl S4 {
+    fn init_a(self : & unit.{a} Self.{a}) {
+        *self.a = 5;
+    }
+}
+```
+Uniniting arguments, again easy: uniniting of argument and parameter must match! It is error if not.
+
+```rust
+struct S4 {a : i32, b : i32, c : i32, d : i32}
+
+let s : uninit.{a} S4 = S4 { uninit a, b : 7, c : 33, d : 4};
+
+s.init_a();
+```
+
 ## Partial Unions
 
-**_(IJ)_**
+**_(K)_**
 
 Unions are always is unsafe to use. Partiality could be extended to `Unions` same as for `Struct`.
 
 But it do not make using units more safe. 
+
 
 # Reference-level explanation
 
@@ -646,6 +772,43 @@ This extension is need to support `..` (or `_`) "rest of fields" field name to i
 StructExprStruct:  PathInExpression { ( .. | StructExprFields | StructBase)? }
 ```
 
+### Partial Uniniting Types Syntax
+
+**_(IJ)_**
+
+First 
+```
+Uniniting:      uninit Partiality?
+ReferenceType:  & Lifetime? PartialMutability?  Uniniting? TypeNoBounds
+```
+
+and create `UnunitingType` for "naked" Uniniting Types and add it into  and insert into `TypeNoBounds`
+```
+UnunitingType:  Uniniting TypeNoBounds
+TypeNoBounds:   ... | ReferenceType | UnunitingType | ...
+```
+
+If (E) extension is on or/and (F) extension is on we replace all `deny` into `deny  | uninit`.
+
+So, maximum changes are: 
+```
+DenyOrUninit:     deny | uninit
+
+StructBase:       .. ( DenyOrUninit | Expression )
+StructExprField:  OuterAttribute * ( DenyOrUninit? IDENTIFIER | DenyOrUninit TUPLE_INDEX | (IDENTIFIER | TUPLE_INDEX) : Expression )
+TupleExprSingle:  DenyOrUninit | DenyOrUninit? Expression
+```
+
+**_(J+)_**
+
+No special syntax is needed.
+
+### Partial Unions Syntax
+
+**_(K)_**
+
+No special syntax is needed.
+
 ### Partial Unions Syntax
 
 **_(IJ)_**
@@ -673,7 +836,7 @@ Then:
 
 (3) If `var_prtlty.is_subset(full_prtlty)` it compiles, otherwise Error.
 
-(4) If `type_prtlty.is_empty()` or `var_prtlty.is_empty()` then Error
+(4) If `type_prtlty.is_empty()` or `var_prtlty.is_empty()`  (if they are explicitly written) then Error
 
 ### Partial Enums Logic Scheme
 
@@ -833,6 +996,37 @@ Then:
 
 No special rules requires.
 
+### Partial Uniniting Types Logic Scheme
+
+**_(IJ + J+)_**
+
+Let we have (pseudo-rust) and partiality "variables" are `HashSet` of permitted field-names: 
+```rust
+let s : uninit.{'uninit_var_prtlty} SomeStructOrTuple.{'st_var_prtlty};
+
+let rsp : & uninit.{'uninit_arg_prtlty} = & s.{'st_expr_prtlty};
+
+// `s` change uniniting after consuming into 
+// s : uninit.{'uninit_after_prtlty} SomeStructOrTuple.{'st_var_prtlty};
+```
+Then:
+
+(1) If `uninit_var_prtlty.is_subset(st_var_prtlty)` it compiles, otherwise Error
+
+(2) If `uninit_arg_prtlty.is_subset(uninit_var_prtlty)` it compiles, otherwise Error
+
+(3) If `uninit_after_prtlty.is_subset(uninit_var_prtlty)` it compiles, otherwise Error
+
+(4) If `uninit_var_prtlty.intersection(st_expr_prtlty).is_subset(uninit_arg_prtlty)` it compiles, otherwise Error
+
+(5) If `uninit_var_prtlty.difference(st_expr_prtlty).is_subset(uninit_after_prtlty)` it compiles, otherwise Error
+
+### Partial Unions Logic Scheme
+
+**_(K)_**
+
+No special rules requires.
+
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -866,6 +1060,10 @@ No special rules requires.
  - Anonymous enum types called joins, as A | B [#402](https://github.com/rust-lang/rfcs/pull/402)
  - Anonymous enum types (A|B) take 2 [#514](https://github.com/rust-lang/rfcs/pull/5142)
 
+(IJ) Proposals of partial initializing
+ - Direct and Partial Initialization using ref uninit [#2534](https://github.com/rust-lang/rfcs/pull/2534)
+ - Unsafe lifetime [#1918](https://github.com/rust-lang/rfcs/pull/1918)
+ 
 (any.details) Alternative for another names or corrections for Partial Types.
 
 
@@ -894,4 +1092,4 @@ If yes, then Ok.
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Any of modules (A), (B), (C), (D), (E), (F), (G), (H), (IJ).
+Any of modules (A), (B), (C), (D), (E), (F), (G), (H), (IJ), (K).
