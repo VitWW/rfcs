@@ -812,14 +812,14 @@ No special rules requires.
 
 Let we have (pseudo-rust) and partiality "variables" are `HashSet` of permitted field-names: 
 ```rust
-let s1 : SomeStructOrTuple.{'st1_prtlty};
-let s2 : SomeStructOrTuple.{'st2_prtlty};
+let s1 : SomeStruct.{'st1_prtlty};
+let s2 : SomeStruct.{'st2_prtlty};
 /* .. */
-let sN : SomeStructOrTuple.{'stN_prtlty};
+let sN : SomeStruct.{'stN_prtlty};
 
-let snew : SomeStructOrTuple = SomeStructOrTuple {..s1, ..s2, /* */ ..sN};
+let snew : SomeStruct = SomeStruct {..s1, ..s2, /* */ ..sN};
 
-let sprt = SomeStructOrTuple {..s1, ..s2, /* */ ..sN, .. deny};
+let sprt = SomeStruct {..s1, ..s2, /* */ ..sN, .. deny};
 ```
 Then:
 
