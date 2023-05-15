@@ -54,19 +54,19 @@ This extension is not only fully backward-compatible, but is fully forward-compa
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Partial (Sub-)Types are types, whiсh has not full range of possible values and they have limited access to own fields.
+Partial (Sub-)Types are types, which has not full range of possible values and they have limited access to own fields.
 
 Partial Types are not Contract Types (Types with invariant), but this proposal could coexist with Contract Types.
 
-Partiality of type (or partial type access) is written as `Path.{fld1, fld2, ..}` after Path (Type name), where `fld1`, `fld2`, .. are only permitted fields of this type, the rest of fields are denied access fields.
+Partiality of type (or partial type access) is written as `Path.{fld1, fld2, ..}` after Path (Type name), where `fld1`, `fld2`, .. are only permitted fields of this type, the rest of fields has denied access.
 
-It is forbidden to use somehow denied fields (like have outside access to private field), including access to read denied field, to write, to borrow, to move. It is a compile error if someone try to access.
+It is forbidden to use somehow denied fields (like have outside access to private field), including access to read such field, to write, to borrow, to move. It is a compile error if someone try to access it.
 
 ## Partial Enums
 
 **_(A)_** *independent sub-proposal*, if it implemented after (B), no extra syntax is needed.
 
-For Sum Types (`ST = T1 or T2 or T3 or ..`), for Enums adding partiality to type is **enough** to have **full flexibility** of using those sub-types.
+For Sum Types (`ST = T1 or T2 or T3 or ..`), for Enums partiality to type addition is **enough** to have **full flexibility** of using those sub-types.
 
 ```rust
 enum MyEnum {
@@ -86,16 +86,16 @@ fn print_B(b: MyEnum.{B}) {
 
 fn print_no_pattern(e: MyEnum) {
   match e {
-    MyEnum::A(_)  => print_A(e),     // e : MyEnum.{A}
-    b @ MyEnum::B(..) => print_B(b), // b : MyEnum.{B}
-    _ => (),                         // e : MyEnum.{C, D};
+    MyEnum::A(_)  => print_A(e),     // e : MyEnum.{A} inferred
+    b @ MyEnum::B(..) => print_B(b), // b : MyEnum.{B} inferred
+    _ => (),                         // e : MyEnum.{C, D}; inferred
   }
 }
 ```
 
-Type checker must guess (without calculating) from assigning **values**, binding **values** and matching **values** which is subtype of Enum type. If the type-checker is more clever, then more conclusions of Enum subtype it has.
+Type checker must guess (without calculating) from assigning **values**, binding **values** and matching **values** which is partial sub-type of Enum type. The more clever type-checker is, then more conclusions of Enum sub-type it has.
 
-Sum-Typed argument type must match with parameter type for function or argument type could has **less** permitted partiality then parameter type.
+Sum-Typed argument type must match with function parameter type or argument type could has **less** permitted partiality then parameter type.
 ```rust
 // Enum ~ Sum Type
 enum E4 {A (i32), B(i32), C (i32), D(i32)}
@@ -124,16 +124,16 @@ So for ergonomic it is Ok to have for each "one-field sub-Enum" Implementation a
 
 **_(B)_** *independent sub-proposal*
 
-For Product Types `PT = T1 and T2 and T3 and ..`), for structs, tuples we need not only partiality of a type, but "partial access" expression: `Expr .{fld1, fld2, ..}`, where `fld1`, `fld2`, .. are permitted fields of this type, the rest of fields are denied.
+For Product Types `PT = T1 and T2 and T3 and ..`), for structs, tuples we need not only partiality of a type, but also "partial access" expression: `Expr .{fld1, fld2, ..}`, where `fld1`, `fld2`, .. are permitted fields of this type, the rest of fields are denied.
 
 One step to partial borrows Structs and Tuples.
 ```rust
 struct Point {
-  x: f64,
-  y: f64, 
-  was_x: f64, 
-  was_y: f64,
-  state : f64,
+    x: f64,
+    y: f64, 
+    was_x: f64, 
+    was_y: f64,
+    state : f64,
 }
 let mut p1 = Point {x:1.0, y:2.0, was_x: 4.0, was_y: 5.0, state: 12.0};
     // p1 : Point
@@ -154,7 +154,7 @@ For Expressions, implicit partiality is `.{_}` ("don't care" partiality).
 
 We could alternatively permit to implicitly infer partiality for arguments. In this case we must explicitly write `.{_}` or `.{*}` to prevent inferring.
 
-Same easy to write functions, which consume partial parameters:
+It is easy to write functions, which consume partial parameters:
 ```rust
 impl Point {
     fn ref_x (self : & Self.{x}) -> &f64 {
@@ -177,11 +177,13 @@ fn ref_xy (self : & Self.{'a @( x, y)}) -> &f64 {
 }
 
 p1.ref_xy();
-// "desugar"
+// which "desugar"
 Point::ref_xy(& p1.{'a});
+// which "desugar"
+Point::ref_xy(& p1.{x, y});
 ```
 
-Product-Typed argument type must match with parameter type for function or argument type could has **more** permitted partiality then parameter type.
+Product-Typed argument type must match with function parameter type or argument type could has **more** permitted partiality then parameter type.
 ```rust
 // Struct ~ Product Type
 struct S4 {a : i32, b : i32, c : i32, d : i32}
@@ -201,11 +203,11 @@ Implementation of sub-Product-type is no needed.
 
 ## Several Selfs
 
-**_(C)_** maybe insecure sub-proposal, which could be added together or after (B), especially before (D) or alternative to (D)
+**_(C?)_** maybe _insecure_ sub-proposal, which could be added together or after (B), especially before (D) or alternative to (D)
 
 Before (or instead of) adding (D) Partial Mutability extension it would be nice, if a general parameter `Smv` as "same variable" is added in Implementations.
 
-*An alternative keywords `self1`, `self2` are added.*
+*As an alternative keywords `self1`, `self2` are added.*
 
 The idea is that general parameter `Smv` add same variable as 2nd parameter:
 ```rust
@@ -250,13 +252,14 @@ Bar::foo(&mut bar.{x}, & bar.{y}); // Ok
 Bar::foo(&mut bar.{x}, & baz.{y}); // Error? Ok?
 ```
 I think it is insecure, error, but who knows.
+
 If it is secure, then this sub-proposal is good. 
 
 ## Partial Mutability
 
 **_(D)_** *partly independent sub-proposal*. If it is implemented before (B), then partly-mutable references are off.
 
-For full flexibility of using partial borrowing partial mutability is needed!
+For full flexibility of using partial borrowing partial mutability is needed (if (C) is not secure)!
 
 For Product Partial Types (structs, tuples) we use "partial mutability" expression: `mut .{fld1, fld2, ..}`, where `fld1`, `fld2`, .. are mutable fields of this type, the rest of fields are immutable(constant).
  
@@ -271,7 +274,7 @@ let mut.{a, c, d} s_macd = S4 {a: 6, b: 7, c: 8, d: 9};
 
 It is also possible to make partial-mutable references, if it is implemented after (B):
 ```rust
-   fn mab_s(&mut.{a,b} s : &mut.{a,b} S4) 
+   fn mab_s(s : &mut.{a,b} S4) 
    { /* ... */ }
    
    mab_s(&mut.{a,b} s_macd);
@@ -281,9 +284,11 @@ It is expected, that `&mut.{..}` is a third type of borrowing!
 If this extension is added, no extension (C) Several Selfs is needed (but it is no contradiction to use both extensions):
 ```rust
 impl Point {
-   pub fn mx_rstate(self : &mut.{x} Self.{x, state}) { /* ... */ }
+   pub fn mx_rstate(self : &mut.{x} Self.{x, state}) 
+   { /* ... */ }
 
-   pub fn my_rstate(self : &mut.{y} Self.{y, state}) { /* ... */ }
+   pub fn my_rstate(self : &mut.{y} Self.{y, state}) 
+   { /* ... */ }
 
    pub fn mxy_rstate(self : &mut.{x,y} Self.{x, y, state}) { 
     /* ... */
@@ -314,9 +319,9 @@ This extension is not just pretty, but useful with extension (F) partial initial
 
 **_(F)_** sub-proposal, which could be added together or after (B), it is better after (E)
 
-All syntax and semantic is ready to have implicit partial initializing and partial pattern deconstruction Structs. If not all fields are initialized, then variable has partial type.
+All syntax and semantic is ready to have implicit partial initializing and partial pattern deconstruction Structs. If not all fields are initialized, then variable has partial type. ЬBut maybe implicit rules are not the best idea.
 
-Alternative to implicit partial initialization is explicit, 
+Alternative to implicit partial initialization is explicit partial initialization, 
 ```rust
 struct S4 {a : i32, b : i32, c : i32, d : i32}
 
@@ -409,37 +414,37 @@ let e_d = EnumInfr::D{d: 77u64}; // es_d : EnumInfr/*{C(i32), D{d: u64}, ..}*/.{
 ```
 It is expected, that type-checker could infers type from using its fields.
 
-## Partial Uniniting Types
+## Partial Uninitialized Types
 
-**_(IJ)_** sub-proposal, which could be added together or after (B) 
+**_(IJ)_** *partly independent sub-proposal* sub-proposal, which could be added together or after (B) 
 
 Rust allow to write uninitialized variables. But they are fully uninitialized. This extension allow to write much more.
 
-We add `uninit` before Type Name and we also add partiality to it - Partial Uniniting.
+We add `uninit` before Type Name and we also add partiality to it - Partial Uninitialization.
 
-If we use explicit unitialization (together with (F)), if implicitly, then instead of (F) (it is better remain Error if not fields are filled)
+We could use explicit uninitialization (together with (F)), or implicitly, but **instead of** (F) (that's why it is better remain Error if not all fields are filled)
 ```rust
 struct S4 {a : i32, b : i32, c : i32, d : i32}
 
 let s_bd  : uninit.{a, c} S4 = S4 {b: 7, d: 9, ..uninit};
 ```
 
-If we also use extension (E), then we could also write uniniting for tuples and more flexible 
+If we also use extension (E), then we could also write uninitialization for tuples and more flexible for Structs
 ```rust
-let s_bd  : uninit.{c} S4 = S4 {a: 3, b: 7, uninit c, d: 9};
+let s_bd : uninit.{c} S4 = S4 {a: 3, b: 7, uninit c, d: 9};
 
-let t_1   : uninit.{1} (i32, u16, f64, f32) = (uninit, 4, uninit, uninit);
+let t_1  : uninit.{1} (i32, u16, f64, f32) = (uninit, 4, uninit, uninit);
 
-let t_3   : (uninit i32, uninit u16, uninit f64, f32) = (uninit, uninit, uninit, 9.0f32);
+let t_3  : (uninit i32, uninit u16, uninit f64, f32) = (uninit, uninit, uninit, 9.0f32);
 
 let t_02 = (6i32, uninit 7u16, 8.0f64, uninit 9.0f32); // t_02 : (i32, uninit u16, f64, uninit f32)
 ```
 
- If extension (E) is off, we must allow infer uniniting from the type:
+ If extension (E) is off, we must allow infer uninitialization from the type:
 ```rust
 let t_3   : uninit.{0,1,2} (i32, u16, f64, f32) = (1, 7, 8, 9.0f32);
 ```
-Sure, it is forbidden to read, to move and to borrow uninit fields.
+Sure, it is forbidden to read, and without (J) it is forbidden to move and to borrow uninitialized fields.
 
 Now we could create self-Referential Types:
 ```rust
@@ -454,20 +459,20 @@ x.lnk = & x.val;
     // x : SR<i32>;
 ```
 
-This Uniniting as we added is enough to extend by "referential uniniting" (and not only for Partial Types, but for any types (Sized at least)), but due complexity it is not part of this extension.
+This Uninitialization as we added is enough to extend by "referential uninitialization" (and not only for Partial Types, but for any types (Sized at least)), but due complexity it is not part of this extension.
 
-**_(J+)_** *independent sub-proposal* **Uniniting Types or Movable and Referential Uniniting**
+**_(J+)_** *independent sub-proposal* **Uninitialized Types** or *Movable and Referential Uninitialization*
 
-Most important: Uniniting variable after initialization (droping uniniting), is no longer `uninit`!
+Most important: Uninitialized variable after initialization (droping Uninitialization), is no longer `uninit`!
 ```rust
 let a :  i32;
 // a : uninit i32;
 
 a = 7;
-// a : i32; uninit is "drop"/inited
+// a : i32; uninit is "drop"/initialized
 ```
 
-Movable non-refential uniniting is easy: uniniting is "moved" by move from sender to receiver.
+Uninitialized variable is movable: uninitialization is "moved" by move from sender to receiver.
 ```rust
 let a :  i32;
 // a : uninit i32;
@@ -475,19 +480,26 @@ let a :  i32;
 let b = a;
 // b : uninit i32;
 // a : i32; // not longer uninit, but moved
+
+let c :  &i32;
+// c : uninit i32;
+
+let d = c;
+// d : uninit &i32;
+// c : &i32; // not longer uninit, but moved
 ```
 
-Referential Uniniting is a bit complicated. 
+Referential Uninitialization is a bit complicated. 
 
-(1) Uniniting is "moved" by move from sender to receiver (reference)
+(1) Uninitialization is "moved" by move from sender to receiver (reference)
 
-(2) Uniniting Reference is always "exclusive", regardless if it mutable or not (till drop).
+(2) Inner-Uninitialized Reference is always "exclusive", regardless if it mutable or not (till drop).
 
-(3) Uniniting dereferenceble Variable is always at least once write-only, regardless if it mutable or not
+(3) Inner-Uninitialized dereferenceble Variable is always at least once write-only, regardless if it mutable or not
 
-(4) Uniniting Reference is forbidden to move (after initialization, reference is not longer Uniniting).
+(4) Inner-Uninitialized Reference is forbidden to move (after initialization, reference is not longer inner-Uninitialized).
 
-(5) Uniniting Reference is forbidden to **drop** (after initialization, reference is not longer Uniniting). 
+(5) Inner-Uninitialized Reference is forbidden to **drop** (after initialization, reference is not longer inner-Uninitialized). 
 
 ```rust
 let a :  i32;
@@ -505,15 +517,17 @@ drop(b);
 // a == 7
 ```
 
-Uniniting Parameters are similar to Referential Uniniting
+_Note_: `a : uninit & i32` is an uninitialized variable with referential type, but `b : & uninit i32` is initialized reference to uninitialized variable
 
-(1) Uniniting must be written explicitly at Type
+Uninitialized Parameters are similar to Referential Uninitialization
 
-(2) If Uniniting Parameter is not-reference, then it behaves same as uniniting non-reference.
+(1) Uninitialization must be written explicitly at Type
 
-(3) If Uniniting Parameter is reference, then it behaves same as uniniting reference.
+(2) If Uninitialized Parameter is a not-reference, then it behaves same as Uninitialized variable.
 
-(4) If Uniniting Parameter is reference initialization must happens before return or together with return;
+(3) If Uninitialized Parameter is an inner-uninitialized reference, then it behaves same as inner-uninitialized reference.
+
+(4) If Uninitialized Parameter is an inner-uninitialized reference, then initialization must happens before return or together with return.
 
 ```rust
 struct S4 {a : i32, b : i32, c : i32, d : i32}
@@ -524,7 +538,7 @@ impl S4 {
     }
 }
 ```
-Uniniting arguments, again easy: uniniting of argument and parameter must match! It is error if not.
+Uninitialized arguments, again easy: uninitialization of argument and parameter must match! It is error if not.
 
 ```rust
 struct S4 {a : i32, b : i32, c : i32, d : i32}
@@ -538,11 +552,11 @@ s.init_a();
 
 **_(K)_** sub-proposal, which could be added together or after (B) or/and together or after (A)
 
-What if we wish to have  more controls: control Structs inside Enums, or Enum inside Enums, Structs inside Structs, and so on?
+What if we wish to have more controls of partiality: control Structs inside Enums, or Enum inside Enums, Structs inside Structs, and so on?
 
 We allow to use more detailed partiality!
 ```rust
-function foo (self : Self.{ A{1, 2.{B} } ) { /* .. */ }
+fn foo (self : Self.{ A{1, 2.{B} } ) { /* .. */ }
 ``` 
 
 ## Partial Unions
@@ -564,13 +578,13 @@ And this mean, that Proxy Borrowing borrowing is fully **safe** and _zero cost_ 
 
 ## Proxy Borrowing
 
-**_(B)_** and **_(B + D)_**
+**_(B)_** or **_(B + D)_** or **_(B + IJ)_** or **_(B + D + IJ)_**
 
 Borrowing rules for partial types:
 
 `PermittedField` field borrowing rules are ordinary Rust rules. New variable borrows the whole variable (with partial type), but checker pretends it borrows just permitted fields of this variable.
 
-Not `PermittedField` filed is always is ready to mutable and immutable borrow regardless if origin field is denied(by move, by reference, by borrow), is visible, is mutable.
+Not-`PermittedField` filed is always is ready to mutable and immutable borrow regardless if origin field is denied(by move, by reference, by borrow), is visible, is mutable.
 
 When we write a code for partial borrow (or partly mutable borrow), the link of object itself returns, but borrow-checker borrows proxy of permitted fields only.
 
@@ -621,7 +635,7 @@ PartialFields:   PermittedField (, PermittedField )* ,?
 PermittedField:  IDENTIFIER | TUPLE_INDEX | * | _ 
 ```
 
-If no implicit rules are used, then we could not get rid of `*` and `_` quasi-fields.
+If no implicit rules are used, then we could get rid of `*` and `_` quasi-fields.
 ```
 PermittedField:  IDENTIFIER | TUPLE_INDEX
 ```
@@ -681,12 +695,12 @@ IdentifierPattern : ref? PartialMutability? IDENTIFIER (@ PatternNoTopAlt ) ?
 
 If it implemented together or after (B), we change rest of `mut` into `PartialMutability`:
 ```
-BorrowExpression : (&|&&) Expression | (&|&&) PartialMutability? Expression
+BorrowExpression:        (&|&&) Expression | (&|&&) PartialMutability Expression
 
-ReferenceType: & Lifetime? PartialMutability? TypeNoBounds
+ReferenceType:           & Lifetime? PartialMutability? TypeNoBounds
 
-Function:ShorthandSelf : (& | & Lifetime)? PartialMutability? self
-Function:TypedSelf : PartialMutability? self : Type
+Function:ShorthandSelf:  (& | & Lifetime)? PartialMutability? self
+Function:TypedSelf:      PartialMutability? self : Type
 ```
 
 ### Explicit Deny Fields syntax
@@ -695,8 +709,8 @@ Function:TypedSelf : PartialMutability? self : Type
 
 For Tuple Type we need to update `TupleType` again:
 ```
-TupleType:        ( ) | ( ( TupleTypeSingle , )+ TupleTypeSingle? ) Partiality?
-TupleTypeSingle:  deny? Type
+TupleType:        ( ) | ( ( DeniableSubType , )+ DeniableSubType? ) Partiality?
+DeniableSubType:  deny? Type
 ```
 
 ### Partial Initializing Structs and Tuples Syntax
@@ -714,14 +728,14 @@ If (E) extension is on, then we also need to change `StructExprField` and `Struc
 ```
 StructExprField:  OuterAttribute * ( deny? IDENTIFIER | deny TUPLE_INDEX | (IDENTIFIER | TUPLE_INDEX) : Expression )
 
-StructExprTuple:  PathInExpression ( ( TupleExprSingle (, TupleExprSingle)* ,? )? )
+StructExprTuple:  PathInExpression ( ( TupleElement (, TupleElement)* ,? )? )
 ```
 
 If (E) extension is on, then we also need to change `TupleExpr`:
 ```
 TupleExpression:  ( TupleElements? )
-TupleElements :   ( TupleExprSingle , )+ TupleExprSingle?
-TupleExprSingle:  deny | deny? Expression
+TupleElements :   ( TupleElement , )+ TupleElement?
+TupleElement:     deny | deny? Expression
 ```
 
 ### Update Structs by Partial Structs Syntax
@@ -745,20 +759,19 @@ This extension is need to support `..` (or `_`) "rest of fields" field name to i
 StructExprStruct:  PathInExpression { ( .. | StructExprFields | StructBase)? }
 ```
 
-### Partial Uniniting Types Syntax
+### Partial Uninitialized Types Syntax
 
 **_(IJ)_**
 
 First 
 ```
-Uniniting:      uninit Partiality?
-ReferenceType:  & Lifetime? PartialMutability?  Uniniting? TypeNoBounds
+PartialUninit:  uninit Partiality?
 ```
 
-and create `UnunitingType` for "naked" Uniniting Types and add it into  and insert into `TypeNoBounds`
+and create `UninitializedType` for "naked" Uninitialized Types and add it into  and insert into `TypeNoBounds`
 ```
-UnunitingType:  Uniniting TypeNoBounds
-TypeNoBounds:   ... | ReferenceType | UnunitingType | ...
+UninitializedType:  PartialUninit TypeNoBounds
+TypeNoBounds:       ... | ReferenceType | UninitializedType | ...
 ```
 
 If (E) extension is on or/and (F) extension is on we replace all `deny` into `deny  | uninit`.
@@ -769,12 +782,18 @@ DenyOrUninit:     deny | uninit
 
 StructBase:       .. ( DenyOrUninit | Expression )
 StructExprField:  OuterAttribute * ( DenyOrUninit? IDENTIFIER | DenyOrUninit TUPLE_INDEX | (IDENTIFIER | TUPLE_INDEX) : Expression )
-TupleExprSingle:  DenyOrUninit | DenyOrUninit? Expression
+TupleElement:     DenyOrUninit | DenyOrUninit? Expression
 ```
 
 **_(J+)_**
 
-No special syntax is needed.
+If it implemented together with (B), then no special syntax is needed.
+
+Otherwise, we add just `UninitializedType`.
+```
+UninitializedType:  uninit TypeNoBounds
+TypeNoBounds:       ... | ReferenceType | UninitializedType | ...
+```
 
 ## SubPartial Types Syntax
 
@@ -823,11 +842,6 @@ SubEnumField:          IDENTIFIER | TUPLE_INDEX
 
 No special syntax is needed.
 
-### Partial Unions Syntax
-
-**_(IJ)_**
-
-No special syntax is needed.
 
 ## Logic Scheme
 
@@ -850,7 +864,7 @@ Then:
 
 (3) If `var_prtlty.is_subset(full_prtlty)` it compiles, otherwise Error.
 
-(4) If `type_prtlty.is_empty()` or `var_prtlty.is_empty()`  (if they are explicitly written) then Error
+(4) If `type_prtlty.is_empty()` or `var_prtlty.is_empty()` (if they are explicitly written as '`.{}`') then Error
 
 ### Partial Enums Logic Scheme
 
@@ -981,7 +995,11 @@ No special rules requires.
 
 **_(F)_**
 
-No special rules requires.
+If type is omitted, then in Expression:
+```rust
+let t = (some_expr, deny some_deny_expr);
+```
+`some_deny_expr` is used for inferring Type only, expression itself is unused!
 
 ### Update Structs by Partial Structs Logic Scheme
 
@@ -1010,7 +1028,7 @@ Then:
 
 No special rules requires.
 
-### Partial Uniniting Types Logic Scheme
+### Partial Uninitialized Types Logic Scheme
 
 **_(IJ + J+)_**
 
@@ -1020,7 +1038,7 @@ let s : uninit.{'uninit_var_prtlty} SomeStructOrTuple.{'st_var_prtlty};
 
 let rsp : & uninit.{'uninit_arg_prtlty} = & s.{'st_expr_prtlty};
 
-// `s` change uniniting after consuming into 
+// `s` change uninitialization after consuming into 
 // s : uninit.{'uninit_after_prtlty} SomeStructOrTuple.{'st_var_prtlty};
 ```
 Then:
@@ -1034,6 +1052,13 @@ Then:
 (4) If `uninit_var_prtlty.intersection(st_expr_prtlty).is_subset(uninit_arg_prtlty)` it compiles, otherwise Error
 
 (5) If `uninit_var_prtlty.difference(st_expr_prtlty).is_subset(uninit_after_prtlty)` it compiles, otherwise Error
+
+
+If (F) is on, then if type is omitted in Expression:
+```rust
+let t = (some_expr, uninit some_uninit_expr);
+```
+`some_uninit_expr` is used for inferring Type only, expression itself is unused!
 
 ### SubPartial Types Logic Scheme
 
@@ -1112,4 +1137,4 @@ If yes, then Ok.
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Any of modules (A), (B), (C), (D), (E), (F), (G), (H), (IJ), (K), (L).
+Any of modules (A), (B), (C?), (D), (E), (F), (G), (H), (IJ), (K), (L).
