@@ -810,7 +810,7 @@ We wish to have "recursive" sub-partial Enum-types for (A) and Struct-types (B)
 ```
 Partiality:            .{ PartialFields* }
 PartialFields:         PartialField (, PartialField )* ,?
-PartialField:          PermittedField PartialSubEnumFields? Partiality?
+PartialField:          PermittedField (PartialSubEnumFields | Partiality)?
 PartialSubEnumFields:  { PartialSubEnumField (, PartialSubEnumField )* ,? }
 PartialSubEnumField:   SubEnumField Partiality?
 PermittedField:        IDENTIFIER | TUPLE_INDEX | * | _
