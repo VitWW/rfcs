@@ -479,7 +479,7 @@ Second, but still important - syntax.
 
 **_(Stage 1)_**
 
-Minimal Partiality we could write such:
+Minimal Partiality we could write:
 ```
 Partiality:      .{ PartialFields* }
 PartialFields:   PermittedField (, PermittedField )* ,?
@@ -817,9 +817,9 @@ let s2 : SomeStructOrTuple.{'st2_prtlty};
 /* .. */
 let sN : SomeStructOrTuple.{'stN_prtlty};
 
-let snew : SomeStructOrTuple = SomeStructOrTuple.{..s1, ..s2, /* */ ..sN};
+let snew : SomeStructOrTuple = SomeStructOrTuple {..s1, ..s2, /* */ ..sN};
 
-let sprt = SomeStructOrTuple.{..s1, ..s2, /* */ ..sN, .. deny};
+let sprt = SomeStructOrTuple {..s1, ..s2, /* */ ..sN, .. deny};
 ```
 Then:
 
