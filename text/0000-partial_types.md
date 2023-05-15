@@ -190,7 +190,7 @@ let s = S4 {a: 6, b: 7, c: 8, d: 9};
 
 do_sab(s.{*});       // s.{*} - Ok
 do_sab(s.{a, b, c}); // s.{a, b, c} - Ok
-do_sab(s);           // s.{a, b}, inferred - Ok
+do_sab(s);           // s.{a, b}, implicit partiality - Ok
 do_sab(s.{a, b});    // s.{a, b} - Ok
 do_sab(s.{a});       // s.{a} - error
 do_sab(s.{b});       // s.{b} - error
@@ -248,7 +248,7 @@ Bar::foo(&mut bar.{x}, & bar.{y}); // Ok
 Bar::foo(&mut bar.{x}, & baz.{y}); // Error? Ok?
 ```
 I think it is insecure, error, but who knows.
-If it is secure, then this sub-proposal.
+If it is secure, then this sub-proposal is good. 
 
 ## Partial Mutability
 
@@ -295,7 +295,7 @@ impl Point {
 }
 ```
 
-## Pretty Partial Tuples
+## Explicit Deny Fields
 
 **_(E)_** sub-proposal, which could be added together or after (B), it is better before (F)
 
@@ -308,99 +308,84 @@ let t :: (deny i32, &u64, deny f64, u8);
 
 This extension is not just pretty, but useful with extension (F) partial initializing Tuples.
 
-## Partial Initializing Structs and Tuples
+## Partial Initializing and Pattern Deconstruction Structs and Tuples
 
 **_(F)_** sub-proposal, which could be added together or after (B), it is better after (E)
 
-All syntax and semantic is ready to have partial initializing Structs. If not all fields are initialized, then variable has partial type.
+All syntax and semantic is ready to have implicit partial initializing and partial pattern deconstruction Structs. If not all fields are initialized, then variable has partial type.
+
+Alternative to implicit partial initialization is explicit, 
 ```rust
 struct S4 {a : i32, b : i32, c : i32, d : i32}
 
 let s_abcd : S4 = S4 {a: 6, b: 7, c: 8, d: 9};
 
-let s_abc : S4.{a, b, c} = S4 {a: 6, b: 7, c: 8};
-let s_bcd : S4.{b, c, d} = S4 {b: 7, c: 8, d: 9};
-let s_ab  : S4.{a, b}    = S4 {a: 6, b: 7};
-let s_bd  : S4.{b, d}    = S4 {b: 7, d: 9};
-let s_cd  : S4.{c, d}    = S4 {c: 8, d: 9};
-let s_a   : S4.{a}       = S4 {a: 6};
+// Explicit partial initialization
+let s_bd  : S4.{b, d}    = S4 {b: 7, d: 9, .. deny};
+let s_a   : S4.{a}       = S4 {a: 6, .. deny};
+// Implicit partial initialization (alternative)
+let s_a   : S4.{b}       = S4 {b: 26};
 
-let s_abd = S4 {a: 6, b: 7, d: 9}; // s_abd : S4.{a, b, d}
-let s_acd = S4 {a: 6, c: 8, d: 9}; // s_acd : S4.{a, c, d}
-let s_ac  = S4 {a: 6, c: 8};       // s_ac  : S4.{a, c}
-let s_ad  = S4 {a: 6, d: 9};       // s_ad  : S4.{a, d}
-let s_bc  = S4 {b: 7, c: 8};       // s_bc  : S4.{b, c}
-let s_b   = S4 {b: 7};             // s_b   : S4.{b}
-let s_c   = S4 {c: 8};             // s_c   : S4.{c}
-let s_d   = S4 {d: 9};             // s_d   : S4.{d}
+// Explicit partial initialization
+let s_bc  = S4 {b: 7, c: 8, .. deny};       // s_bc  : S4.{b, c}
+let s_c   = S4 {c: 8, .. deny};             // s_c   : S4.{c}
+// Implicit partial initialization (alternative)
+let s_d   = S4 {d: 9};                      // s_d   : S4.{d}
+
+let s_abc : S4.{a, b, c} = S4 {a: 6, b: 7, c: 8, deny d};
+let s_abd = S4 {a: 6, b: 7, deny c, d: 9};  // s_abd : S4.{a, b, d}
 ```
 Sure, it is forbidden to fill private fields outside of module.
 
-It is also become possible to use **several** partly typed variables(sure, their permitted fields must not overlap) for using as Stuct Base fill missed fields:
-```rust
-struct S4 {a : i32, b : i32, c : i32, d : i32}
+If extension (E) Explicit Deny Fields is added, then partial initializing Tuples is also possible with `deny` pre-field and maybe **miss** Expr if type is clear.
 
-let s_ab : S4.{a, b} = S4 {a: 6, b: 7};
-let s_c = S4 {c: 8}; // s_c : S4.{c}
-
-let s1 : S4 = S4{b: 11, d: 17, ..s_ab, ..s_c};
-
-let s_abc = S4{b: 11, ..s_ab, ..s_c}; // s_abc : S4.{a, b, c}
-
-let s2 : S4 = S4{d: 17, ..s_ab, ..s_c};
-```
-
-If extension (E) pretty partiality for tuples is added, then partial initializing Tuples is also possible with `deny` pre-field and maybe **miss** Expr if type is clear.
-
-Or partial experssion is used:
+Or partial expression is used:
 ```rust
 let t_0123: (i32, u16, f64, f32) = (6i32, 7u16, 8.0f64, 9.0f32);
 
 let t_013 : (i32, u16, f64, f32).{0, 1, 3} = (6i32, 7u16, deny 8.0f64, 9.0f32);
-let t_023 : (i32, u16, f64, f32).{0, 2, 3} = (6i32, deny, 8.0f64,      9.0f32);
 let t_0   : (i32, u16, f64, f32).{0}       = (6i32, deny, deny,        deny);
 
-let t_012 : (i32,      u16,      f64,      deny f32) = (6i32,      7u16,      8.0f64, deny 9.0f32);
-let t_2   : (deny i32, deny u16, f64,      deny f32) = (deny 6i32, deny 7u16, 8.0f64, deny 9.0f32);
-let t_23  : (deny i32, deny u16, f64,      f32)      = (deny,      deny 7u16, 8.0f64, 9.0f32);
-let t_123 : (deny i32, u16,      f64,      f32)      = (deny,      7u16,      8.0f64, 9.0f32);
-let t_13  : (deny i32, u16,      deny f64, f32)      = (deny,      7u16,      deny,   9.0f32);
-let t_3   : (deny i32, deny u16, deny f64, f32)      = (deny,      deny,      deny,   9.0f32);
+let t_012 : (i32,      u16,      f64,      deny f32) = (6i32, 7u16,      8.0f64, deny 9.0f32);
+let t_23  : (deny i32, deny u16, f64,      f32)      = (deny, deny 7u16, 8.0f64, 9.0f32);
+let t_3   : (deny i32, deny u16, deny f64, f32)      = (deny, deny,      deny,   9.0f32);
 
 let t_01  : (i32, u16, f64, f32).{0, 1} = (6i32, 7u16, 8.0f64, 9.0f32).{0, 1};
 
-let t_02 = (6i32,      deny 7u16, 8.0f64,      deny 9.0f32); // t_02 : (i32, u16, f64, f32).{0, 2}
-let t_03 = (6i32,      deny 7u16, deny 8.0f64, 9.0f32);      // t_03 : (i32, u16, f64, f32).{0, 3}
-let t_1  = (deny 6i32, 7u16,      deny 8.0f64, deny9.0f32);  // t_1  : (i32, u16, f64, f32).{1}
+let t_02 = (6i32, deny 7u16, 8.0f64, deny 9.0f32); // t_02 : (i32, u16, f64, f32).{0, 2}
 
-let t_12 = (6i32, 7u16, 8.0f64, 9.0f32).{1, 2}; // t_12 : (i32, u16, f64, f32).{1, 2}
+let t_12 = (6i32, 7u16, 8.0f64, 9.0f32).{1, 2};    // t_12 : (i32, u16, f64, f32).{1, 2}
 ```
 
-## Extended Partly initializing Structs and Tuples
+If extension (E) Explicit Deny Fields is added, then alternative partial initializing Structs is also possible with `deny` pre-field and maybe **miss** Expr if type is clear.
+```rust
+struct S4 {a : i32, b : i32, c : i32, d : i32}
+
+let s_abc : S4.{a, b, c} = S4 {a: 6, b: 7, c: 8, deny d};
+let s_abd = S4 {a: 6, b: 7, deny c, d: 9};  // s_abd : S4.{a, b, d}
+```
+
+## Update Structs by Partial Structs
 
 **_(G)_** sub-proposal, which could be added together or after (B)
 
-*Theory of types* do not forbid to become permitted denied fields of Partial Type, but internal Rust representation of variables gives significant limitations on such action.
-
-"Fresh" only variables could be extended, where denied fields are write only fields.
-
-Not Fresh are referenced variables, dereferenced variables and maybe(unclear) moved variables.
-
-Maybe assign operator `=` is enough (or new operator `let=` is needed) for that:
+It is also become possible to use **several** variables which have partial struct-type and their permitted fields must not overlap, for updating omitted fields:
 ```rust
-struct SR <T>{
-    val : T,
-    lnk : & T, // reference to val
-}
+struct S4 {a : i32, b : i32, c : i32, d : i32}
 
-let x = SR {val : 5i32 };
-    // x : SR<i32>.{val}
+let s = S4 {a: 8, b: 9, c: 11};
+let rs_c = & s.{c};
 
-x.lnk = & x.val;
-    // x : SR<i32>;
+// if (F)
+let s_ab : S4.{a, b} = S4 {a: 6, b: 7, .. deny};
+
+// if (F)
+let s_abc = S4{b: 11, ..s_ab, .. *rs_c, .. deny}; // s_abc : S4.{a, b, c}
+
+let s1 : S4 = S4{b: 11, d: 17, ..s_ab, .. *rs_c};
+
+let s2 : S4 = S4{d: 17, ..s_ab, .. *rs_c};
 ```
-
-This extension is useful for late initialization, including Self-Referential Types.
 
 ## Inferred Structs and Enums
 
@@ -422,6 +407,13 @@ let e_d = EnumInfr::D{d: 77u64}; // es_d : EnumInfr/*{C(i32), D{d: u64}, ..}*/.{
 ```
 It is expected, that type-checker could infers type from using its fields.
 
+## Partial Unions
+
+**_(IJ)_**
+
+Unions are always is unsafe to use. Partiality could be extended to `Unions` same as for `Struct`.
+
+But it do not make using units more safe. 
 
 # Reference-level explanation
 
@@ -487,15 +479,21 @@ Second, but still important - syntax.
 
 Minimal Partiality we could write such:
 ```
-Partiality: .{ PartialFields* }
-PartialFields: PermittedField (, PermittedField )* ,?
-PermittedField: IDENTIFIER | TUPLE_INDEX | * | _ 
+Partiality:      .{ PartialFields* }
+PartialFields:   PermittedField (, PermittedField )* ,?
+PermittedField:  IDENTIFIER | TUPLE_INDEX | * | _ 
+```
+
+If no implicit rules are used, then we could not get rid of `*` and `_` quasi-fields.
+```
+PermittedField:  IDENTIFIER | TUPLE_INDEX
 ```
 
 **_(Stage 2B)_**
 
 If we wish to have "recursive" sub-partial Product-types for (B) and / or (D)
 ```
+Partiality:       .{ PartialFields* }
 PartialFields:    PartialField (, PartialField )* ,?
 PartialField:     PermittedField Partiality?
 PermittedField:   IDENTIFIER | TUPLE_INDEX | * | _
@@ -505,6 +503,7 @@ PermittedField:   IDENTIFIER | TUPLE_INDEX | * | _
 
 If we wish to have "recursive" sub-partial Enum-types for (A)
 ```
+Partiality:        .{ PartialFields* }
 PartialFields:     PartialField (, PartialField )* ,?
 PartialField:      PermittedField PartialSubFields?
 PartialSubFields:  { PartialSubField (, PartialSubField )* ,? }
@@ -513,7 +512,7 @@ PermittedField:    IDENTIFIER | TUPLE_INDEX | * | _
 SpecificSubField:  IDENTIFIER | TUPLE_INDEX
 ```
 
-**_(Stage 1+2A+2B)_**
+**_(Stage 2A+2B)_**
 
 Finally, Partiality with full and maximum control and flexibility:
 ```
@@ -522,7 +521,7 @@ PartialFields:         PartialField (, PartialField )* ,?
 PartialField:          PermittedField PartialSubEnumFields? Partiality?
 PartialSubEnumFields:  { PartialSubEnumField (, PartialSubEnumField )* ,? }
 PartialSubEnumField:   SubEnumField Partiality
-PermittedField:        IDENTIFIER | TUPLE_INDEX | * | ..
+PermittedField:        IDENTIFIER | TUPLE_INDEX | * | _
 SubEnumField:          IDENTIFIER | TUPLE_INDEX
 ```
 
@@ -589,7 +588,7 @@ Function:ShorthandSelf : (& | & Lifetime)? PartialMutability? self
 Function:TypedSelf : PartialMutability? self : Type
 ```
 
-### Pretty Partial Tuple syntax
+### Explicit Deny Fields syntax
 
 **_(E)_**
 
@@ -603,30 +602,38 @@ TupleTypeSingle:  deny? Type
 
 **_(F)_**
 
-If we allow several fillers "rest of fields", then 
+No special syntax for implicit partial initialization of Struct is don't needed.
+
+For explicit partial initialization of Struct we update `StructBase`.
+```
+StructBase:  .. ( deny | Expression )
+```
+
+If (E) extension is on, then we also need to change `StructExprField` and `StructExprTuple` for Structs:
+```
+StructExprField:  OuterAttribute * ( deny? IDENTIFIER | deny TUPLE_INDEX | (IDENTIFIER | TUPLE_INDEX) : Expression )
+
+StructExprTuple:  PathInExpression ( ( TupleExprSingle (, TupleExprSingle)* ,? )? )
+```
+
+If (E) extension is on, then we also need to change `TupleExpr`:
+```
+TupleExpression:  ( TupleElements? )
+TupleElements :   ( TupleExprSingle , )+ TupleExprSingle?
+TupleExprSingle:  deny | deny? Expression
+```
+
+### Update Structs by Partial Structs Syntax
+
+**_(G)_**
+
+For updating Struct by several Structs, then we change `StructBase` to `StructBases`:
 ```
 StructExprStruct:  PathInExpression { (StructExprFields | StructBases)? }
 StructExprFields:  StructExprField (, StructExprField)* (, StructBases | ,?)
 StructBases:       StructBase (, StructBase )* ,?
 StructBase:        .. Expression
 ```
-
-No special syntax for partial initialization of Struct is don't needed.
-
-If (E) extension is on, then we also need to change `TupleExpr` and `StructExprTuple`:
-```
-TupleExpression:  ( TupleElements? )
-TupleElements :   ( TupleExprSingle , )+ TupleExprSingle?
-TupleExprSingle:  deny | deny? Expression
-
-StructExprTuple:  PathInExpression ( ( TupleExprSingle (, TupleExprSingle)* ,? )? )
-```
-
-### Extended Partly initializing Variables Syntax
-
-**_(G)_**
-
-Special syntax is not required.
 
 ### Inferred Structs and Enums Syntax
 
@@ -636,6 +643,193 @@ This extension is need to support `..` (or `_`) "rest of fields" field name to i
 ```
 StructExprStruct:  PathInExpression { ( .. | StructExprFields | StructBase)? }
 ```
+
+### Partial Unions Syntax
+
+**_(IJ)_**
+
+No special syntax is needed.
+
+## Logic Scheme
+
+Third, but still important - Logic Scheme.
+
+For pseudo-rust we suppose, partiality is a `HashSet` of permitted field-names.
+
+Common rules:
+```rust
+fn bar(v : SomeType.{'type_prtlty}) 
+{ /* .. */ }
+
+let v : SomeType.{'var_prtlty}; 
+```
+Then:
+
+(1) If `SomeType` is not supported type (Enum, Struct, Tuple) then Error.
+
+(2) If partiality has no extra field-names `type_prtlty.is_subset(full_prtlty)` it compiles, otherwise Error.
+
+(3) If `var_prtlty.is_subset(full_prtlty)` it compiles, otherwise Error.
+
+(4) If `type_prtlty.is_empty()` or `var_prtlty.is_empty()` then Error
+
+### Partial Enums Logic Scheme
+
+**_(A)_**
+
+Let we have (pseudo-rust) and `enm_param_prtlty` and `enm_arg_prtlty` are `HashSet` of permitted field-names: 
+```rust
+fn bar(e : SomeEnum.{'enm_param_prtlty}) 
+{ /* .. */ }
+
+let e : SomeEnum.{'enm_arg_prtlty}; 
+bar(e);
+
+impl SomeEnum.{'enm_impl_prtlty} {
+    fn foo(self : Self.{'enm_slf_prtlty}) 
+	{ /* .. */ }
+}
+
+e.foo();
+```
+Then:
+
+(1) If `enm_arg_prtlty.is_subset(enm_param_prtlty)` it compiles, otherwise Error (**inverse** of Struct). 
+
+(2) If `enm_slf_prtlty.is_subset(enm_impl_prtlty)` it compiles, otherwise Error (same as Struct).
+
+(3) Let we have several implementations for same type, but different partiality. And `all_enm_impl_prtlty` is an `array` of each `enm_impl_prtlty`.
+
+If `all_enm_impl_prtlty.iter().any(|&eip| enm_arg_prtlty.is_subset(eip))` it compiles, otherwise Error (same as Struct+).
+
+(4) If `1 == all_enm_impl_prtlty.iter().fold(0, |acc, &eip| if enm_arg_prtlty.is_subset(eip) {acc+1} else {acc})` it compiles, otherwise ?Error.
+
+We expect that just one "implementation" partiality is match and we choose it for calling a method.
+
+### Partial Struct and Tuples Logic Scheme
+
+**_(B)_**
+
+Let we have (pseudo-rust) and `st_param_prtlty` and `st_arg_prtlty` are `HashSet` of permitted field-names: 
+```rust
+fn bar(s : SomeStructOrTuple.{'st_param_prtlty}) 
+{ /* .. */ }
+
+let s : SomeStructOrTuple.{'st_arg_prtlty}; 
+bar(s);
+
+let rsp = & s.{'expr_prtlty};
+
+impl SomeStructOrTuple.{'st_impl_prtlty} {
+    fn foo(self : Self.{'st_slf_prtlty}) 
+	{ /* .. */ }
+}
+
+s.foo();
+// (4) desugars into:
+SomeStructOrTuple.{'st_impl_prtlty}::foo(s.{'st_slf_prtlty});
+```
+Then:
+
+(1) If `st_arg_prtlty.is_superset(st_param_prtlty)` it compiles, otherwise Error (**inverse** of Enum).
+
+(2) If `expr_prtlty.is_subset(st_arg_prtlty)` it compiles, otherwise Error.
+
+(3) If `st_slf_prtlty.is_subset(st_impl_prtlty)` it compiles, otherwise Error (same as Enum).
+
+(4) Updating desugaring for `self` (and `Rhs`) variables.
+
+Desugaring `s.foo()` into `SomeStructOrTuple.{'st_impl_prtlty}::foo(s.{'st_slf_prtlty})` .
+
+(5) It has **no sense** to have several implementation of same product-type and different partiality. 
+
+(5+) Anyway let we have several implementations for same type, but different partiality. And `all_st_impl_prtlty` is an `array` of each `st_impl_prtlty`.
+
+If `all_st_impl_prtlty.iter().any(|&sip| st_arg_prtlty.is_subset(sip))` it compiles, otherwise Error. (same as Enum).
+
+(6+) If `1 == all_st_impl_prtlty.iter().fold(0, |acc, &sip| if st_arg_prtlty.is_subset(sip) {acc+1} else {acc})` it compiles, otherwise ?Error.
+
+We expect that just one "implementation" partiality is match and we choose it for calling a method.
+
+### Several Selfs Logic Scheme
+
+**_(C)_**
+
+Let we have (pseudo-rust) and partiality "variables" are `HashSet` of permitted field-names: 
+```rust
+let s : SomeStructOrTuple.{'st_arg_prtlty};
+
+impl SomeStructOrTuple.{'st_impl_prtlty}<Smv = Self> {
+    fn foo(self : Self.{'st_slf_prtlty}, smv : Smv.{'st_smv_prtlty})
+	{ /* .. */ }
+}
+
+s.foo();
+// (2) desugars into:
+SomeStructOrTuple.{'st_impl_prtlty}::foo(s.{'st_slf_prtlty}, s.{'st_smv_prtlty});
+```
+Then:
+
+(1) Adding `Smv = Self`(always `Self`) as "same variable" general parameter.
+
+(2) If `st_smv_prtlty.is_subset(st_impl_prtlty)` it compiles, otherwise Error (same as for `self`).
+
+(3) Adding a rule for `Smv` general parameter.
+
+Desugaring `s.foo()` into `SomeStructOrTuple.{st_impl_prtlty}::foo(s.{st_slf_prtlty}, s.{st_smv_prtlty})` .
+
+### Partial Mutability Logic Scheme
+
+**_(D)_**
+
+Let we have (pseudo-rust) and partiality "variables" are `HashSet` of permitted field-names: 
+```rust
+let mut.{'mut_var_prtlty} s : SomeStructOrTuple.{'st_var_prtlty};
+
+let mrsp = &mut.{'mut_arg_prtlty} s;
+```
+Then:
+
+(1) If `mut_arg_prtlty.intersection(st_var_prtlty).is_subset(mut_var_prtlty)` it compiles, otherwise Error
+
+### Explicit Deny Fields Logic Scheme
+
+**_(E)_**
+
+No special rules requires.
+
+### Partial Initializing Structs and Tuples Logic Scheme
+
+**_(F)_**
+
+No special rules requires.
+
+### Update Structs by Partial Structs Logic Scheme
+
+**_(G)_**
+
+Let we have (pseudo-rust) and partiality "variables" are `HashSet` of permitted field-names: 
+```rust
+let s1 : SomeStructOrTuple.{'st1_prtlty};
+let s2 : SomeStructOrTuple.{'st2_prtlty};
+/* .. */
+let sN : SomeStructOrTuple.{'stN_prtlty};
+
+let snew : SomeStructOrTuple = SomeStructOrTuple.{..s1, ..s2, /* */ ..sN};
+
+let sprt = SomeStructOrTuple.{..s1, ..s2, /* */ ..sN, .. deny};
+```
+Then:
+
+(1) If for any `J > I` we have `st<I>_prtlty.is_disjoint(st<J>_prtlty) == true` it compiles, otherwise Error ;
+
+(2) If for `snew` variable `full_prtlty.difference(st1_prtlty).difference(st2_prtlty)/* */.difference(stN_prtlty).is_empty()` it compiles, otherwise Error.
+
+### Inferred Structs and Enums Logic Scheme
+
+**_(H)_**
+
+No special rules requires.
 
 
 # Drawbacks
@@ -663,11 +857,6 @@ StructExprStruct:  PathInExpression { ( .. | StructExprFields | StructBase)? }
  - Fields in Traits [#1546](https://github.com/rust-lang/rfcs/pull/1546)
  - ImplFields [issue#3269](https://github.com/rust-lang/rfcs/issues/3269)
 
-(F) Proposals of partial initializing
- - Direct and Partial Initialization using ref uninit [#2534](https://github.com/rust-lang/rfcs/pull/2534)
- - Unsafe lifetime [#1918](https://github.com/rust-lang/rfcs/pull/1918)
- - 
-
 (H) Proposals of Anonymous Types:
  - Structural Record [#2584](https://github.com/rust-lang/rfcs/pull/2584)
  - Anonymous variant types, a minimal ad-hoc sum type[#2587](https://github.com/rust-lang/rfcs/pull/2587)
@@ -687,10 +876,20 @@ Most languages don't have such strict rules for references and links as Rust, so
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-Is is possible after creating one variable with missed field, move (partly) it into another variable, and then independently extend same field at both variables?
+(C) Security of using this extension.
+Is it secure not to check the origin if variable is the same if we explicitly write associated function?
+```rust
+impl Bar<Smv = Self>{
+    fn foo(self : &mut Self::{x}, smv: & Smv::{y}) { /* */ }
+}
+Bar::foo(&mut bar.{x}, & bar.{y}); // Ok
+Bar::foo(&mut bar.{x}, & baz.{y}); // Error? Ok?
+```
+I think it is insecure, error, but who knows.
+If yes, then Ok.
 
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Any of modules (A), (B), (C), (D), (E), (F), (G), (H).
+Any of modules (A), (B), (C), (D), (E), (F), (G), (H), (IJ).
