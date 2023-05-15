@@ -534,9 +534,20 @@ let s : uninit.{a} S4 = S4 { uninit a, b : 7, c : 33, d : 4};
 s.init_a();
 ```
 
+## SubPartial Types
+
+**_(K)_** sub-proposal, which could be added together or after (B) or/and together or after (A)
+
+What if we wish to have  more controls: control Structs inside Enums, or Enum inside Enums, Structs inside Structs, and so on?
+
+We allow to use more detailed partiality!
+```rust
+function foo (self : Self.{ A{1, 2.{B} } ) { /* .. */ }
+``` 
+
 ## Partial Unions
 
-**_(K)_**
+**_(L)_** sub-proposal, which could be added together or after (B)
 
 Unions are always is unsafe to use. Partiality could be extended to `Unions` same as for `Struct`.
 
@@ -603,8 +614,6 @@ Second, but still important - syntax.
 
 ### Partiality Syntax
 
-**_(Stage 1)_**
-
 Minimal Partiality we could write:
 ```
 Partiality:      .{ PartialFields* }
@@ -615,42 +624,6 @@ PermittedField:  IDENTIFIER | TUPLE_INDEX | * | _
 If no implicit rules are used, then we could not get rid of `*` and `_` quasi-fields.
 ```
 PermittedField:  IDENTIFIER | TUPLE_INDEX
-```
-
-**_(Stage 2B)_**
-
-If we wish to have "recursive" sub-partial Product-types for (B) and / or (D)
-```
-Partiality:       .{ PartialFields* }
-PartialFields:    PartialField (, PartialField )* ,?
-PartialField:     PermittedField Partiality?
-PermittedField:   IDENTIFIER | TUPLE_INDEX | * | _
-```
-
-**_(Stage 2A)_**
-
-If we wish to have "recursive" sub-partial Enum-types for (A)
-```
-Partiality:        .{ PartialFields* }
-PartialFields:     PartialField (, PartialField )* ,?
-PartialField:      PermittedField PartialSubFields?
-PartialSubFields:  { PartialSubField (, PartialSubField )* ,? }
-PartialSubField:   SpecificSubField Partiality
-PermittedField:    IDENTIFIER | TUPLE_INDEX | * | _
-SpecificSubField:  IDENTIFIER | TUPLE_INDEX
-```
-
-**_(Stage 2A+2B)_**
-
-Finally, Partiality with full and maximum control and flexibility:
-```
-Partiality:            .{ PartialFields* }
-PartialFields:         PartialField (, PartialField )* ,?
-PartialField:          PermittedField PartialSubEnumFields? Partiality?
-PartialSubEnumFields:  { PartialSubEnumField (, PartialSubEnumField )* ,? }
-PartialSubEnumField:   SubEnumField Partiality
-PermittedField:        IDENTIFIER | TUPLE_INDEX | * | _
-SubEnumField:          IDENTIFIER | TUPLE_INDEX
 ```
 
 ### Partial Enums syntax
@@ -803,9 +776,50 @@ TupleExprSingle:  DenyOrUninit | DenyOrUninit? Expression
 
 No special syntax is needed.
 
-### Partial Unions Syntax
+## SubPartial Types Syntax
 
 **_(K)_**
+
+It depends after which extension is switch on.
+
+**_(not A, B or D)_**
+
+If we wish to have "recursive" sub-partial Product-types for (B) and / or (D)
+```
+Partiality:       .{ PartialFields* }
+PartialFields:    PartialField (, PartialField )* ,?
+PartialField:     PermittedField Partiality?
+PermittedField:   IDENTIFIER | TUPLE_INDEX | * | _
+```
+
+**_(A, not B, not D)_**
+
+If we wish to have "recursive" sub-partial Enum-types for (A)
+```
+Partiality:        .{ PartialFields* }
+PartialFields:     PartialField (, PartialField )* ,?
+PartialField:      PermittedField PartialSubFields?
+PartialSubFields:  { PartialSubField (, PartialSubField )* ,? }
+PartialSubField:   SpecificSubField Partiality
+PermittedField:    IDENTIFIER | TUPLE_INDEX | * | _
+SpecificSubField:  IDENTIFIER | TUPLE_INDEX
+```
+
+**_(A + B or A + D or A + B + D)_**
+We wish to have "recursive" sub-partial Enum-types for (A) and Struct-types (B)
+```
+Partiality:            .{ PartialFields* }
+PartialFields:         PartialField (, PartialField )* ,?
+PartialField:          PermittedField PartialSubEnumFields? Partiality?
+PartialSubEnumFields:  { PartialSubEnumField (, PartialSubEnumField )* ,? }
+PartialSubEnumField:   SubEnumField Partiality?
+PermittedField:        IDENTIFIER | TUPLE_INDEX | * | _
+SubEnumField:          IDENTIFIER | TUPLE_INDEX
+```
+
+### Partial Unions Syntax
+
+**_(L)_**
 
 No special syntax is needed.
 
@@ -1021,9 +1035,15 @@ Then:
 
 (5) If `uninit_var_prtlty.difference(st_expr_prtlty).is_subset(uninit_after_prtlty)` it compiles, otherwise Error
 
-### Partial Unions Logic Scheme
+### SubPartial Types Logic Scheme
 
 **_(K)_**
+
+No special rules requires.
+
+### Partial Unions Logic Scheme
+
+**_(L)_**
 
 No special rules requires.
 
@@ -1092,4 +1112,4 @@ If yes, then Ok.
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Any of modules (A), (B), (C), (D), (E), (F), (G), (H), (IJ), (K).
+Any of modules (A), (B), (C), (D), (E), (F), (G), (H), (IJ), (K), (L).
