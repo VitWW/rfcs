@@ -15,7 +15,7 @@ Advantages: maximum type safety, maximum type control guarantee, no ambiguities,
 # Motivation
 [motivation]: #motivation
 
-Partial Types proposal is a generalization on "partial borrowing"-like proposals. Safe, Flexible controllable partial parameters for functions and partial consumption (including partial borrowing) are highly needed.
+Partial Types to Sum Types proposal is a parallell, but syncronized with Partial Types to Product Types proposal for "partial borrowing"-like proposals. 
 
 Partial Types extension gives to Sum Types (`ST = T1 or T2 or T3 or ..`), Enums first of all, a good tool for "partial functions".
 ```rust
@@ -32,20 +32,7 @@ let ea = EnumABC::A(7);
 print_A(ea);
 ```
 
-Partial Types extension gives to Product Types (`PT = T1 and T2 and T3 and ..`), Structs and Tuples first of all, a good **mathematical guarantee** to borrow-checker that borrowing the whole variable with partial type and pretending to borrow just permitted fields is **fully safe**.
-```rust
-struct StructABC { a: u32, b: i64, c: f32, }
-
-// function with partial parameter Struct
-fn ref_a (s : & StructABC.{a}) -> &u32 {
-    &s.a
-}
-
-let s = StructABC {a: 4, b: 7, c: 0.0};
-
-// partial expression at argument
-let sa = ref_a(& s.{a});
-```
+Partial Types extension gives to variables with Enum types a good **mathematical guarantee** to checker that use variable with partial type **fully safe**.
 
 And since it is a guarantee by **type**, not by **values**, it has _zero cost_ in binary! Any type error is a compiler error, so no errors in the runtime.
 
