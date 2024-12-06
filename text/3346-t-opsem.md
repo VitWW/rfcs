@@ -1,11 +1,11 @@
 - Feature Name: n/a
-- Start Date: (2022-11-07)
+- Start Date: 2022-11-07
 - RFC PR: [rust-lang/rfcs#3346](https://github.com/rust-lang/rfcs/pull/3346)
 - Rust Issue: n/a
 
 # Summary
 
-Create an operational semantics team that is tasked with owning the semantics of unsafe code. This responsibility would be transferred from T-types, which had previously been given ownership of this domain. Additionally, this team replaces the Unsafe Code Guidelines working group, which has been doing much of the work in this space.
+Create an operational semantics team that is tasked with owning the semantics of unsafe code. This responsibility would be transferred from [T-types], which had previously been given ownership of this domain. Additionally, this team replaces the Unsafe Code Guidelines working group, which has been doing much of the work in this space.
 
 ## Mission and responsibilities
 
@@ -35,9 +35,9 @@ It is not possible to precisely define where the scope of the team's responsibil
 
 ## Relationships to other teams
 
-**T-lang**: The team is a subteam of T-lang. It has the same relationship to T-lang as T-types has. This means decisions about "details" will be made by the team alone, but decisions around the big picture "direction" will require consultation with T-lang.
+**T-lang**: The team is a subteam of T-lang. It has the same relationship to T-lang as [T-types] has. This means decisions about "details" will be made by the team alone, but decisions around the big picture "direction" will require consultation with T-lang.
 
-**T-types**: As T-types will no longer own semantics questions, the responsibilities of T-opsem and T-types are not expected to overlap. However, like other teams, T-types is expected to consult T-opsem on any changes that require support from the operational semantics. For example, if T-types wants to extend the borrow checker to allow more code patterns, T-opsem must confirm that the code that this permits can be supported by a reasonable operational semantics. Conversely, when T-opsem wants to declare some unsafe code UB, it better be the case that T-types does not have plans to allow the same action to be expressible in safe code. Additionally, T-types and T-opsem are expected to need to collaborate heavily on the syntax and semantics of MIR, since MIR is pivotal to both teams' interests.
+**T-types**: As [T-types] will no longer own semantics questions, the responsibilities of T-opsem and T-types are not expected to overlap. However, like other teams, T-types is expected to consult T-opsem on any changes that require support from the operational semantics. For example, if T-types wants to extend the borrow checker to allow more code patterns, T-opsem must confirm that the code that this permits can be supported by a reasonable operational semantics. Conversely, when T-opsem wants to declare some unsafe code UB, it better be the case that T-types does not have plans to allow the same action to be expressible in safe code. Additionally, T-types and T-opsem are expected to need to collaborate heavily on the syntax and semantics of MIR, since MIR is pivotal to both teams' interests.
 
 **T-compiler**: Unlike T-types, T-opsem is not a subteam of T-compiler as it does not own any implementations. However, T-compiler is still expected to request approval from T-opsem before adding any optimization that depends on new theorems about the operational semantics. T-opsem will ensure that these theorems are expected to be true and are reasonable things for the compiler to depend on now.
 
@@ -70,9 +70,9 @@ When considering someone for membership, the qualifications below will all be ta
     - Do they "steelman", looking for ways to restate others' points in the most convincing way?
  - Is this person **active**?
     - Are they attending meetings regularly?
-    - Either in meeting or elsewhere, do they comment on disussions and otherwise?
+    - Either in meeting or elsewhere, do they comment on discussions and otherwise?
 
-The last four bullets are lighlty edited versions of a subset of the [T-lang membership qualifications][lang-qualifications].
+The last four bullets are lightly edited versions of a subset of the [T-lang membership qualifications][lang-qualifications].
 
 [lang-qualifications]: https://lang-team.rust-lang.org/membership.html
 
@@ -112,3 +112,5 @@ As noted above, the team and certainly all of its members are expected to have i
  - One alternative is to maintain the status quo, that is to have T-types continue to be responsible for these decisions.
 
    Currently, the intersection between the members of WG-unsafe-code-guidelines and T-types is small. This means this option seems non-ideal, as it is unlikely that individuals interested in the topics that remain with T-types after this RFC are the same people who are most interested in working on opsem topics.
+
+[T-types]: 3254-types-team.md
